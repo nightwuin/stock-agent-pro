@@ -3,129 +3,222 @@ import { useState, useCallback } from 'react'
 const C = {
   bg: '#0a0a0a', card: '#111', border: '#1e1e1e', text: '#f0f0f0',
   muted: '#666', green: '#22c55e', red: '#ef4444', amber: '#f59e0b',
-  blue: '#3b82f6', surface: '#161616'
+  blue: '#3b82f6', surface: '#161616', purple: '#a855f7'
 }
 
 const SIG = {
-  ACHETER: { color: '#22c55e', bg: '#052e16', border: '#166534' },
-  VENDRE:  { color: '#ef4444', bg: '#2d0505', border: '#7f1d1d' },
-  ATTENDRE:{ color: '#f59e0b', bg: '#2d1d05', border: '#92400e' }
+  ACHETER:  { color: '#22c55e', bg: '#052e16', border: '#166534' },
+  VENDRE:   { color: '#ef4444', bg: '#2d0505', border: '#7f1d1d' },
+  ATTENDRE: { color: '#f59e0b', bg: '#2d1d05', border: '#92400e' }
 }
 
 async function fetchStockData(ticker) {
   const res = await fetch('/api/stock?ticker=' + ticker)
-  if (!res.ok) throw new Error('Impossible de recuperer les donnees pour ' + ticker)
+  if (!res.ok) throw new Error('Erreur reseau pour ' + ticker)
   return res.json()
 }
 
-function parseYahooData(data, ticker) {
+function parseAllData(data, ticker) {
   try {
-    const price = data.summary && data.summary.quoteSummary && data.summary.quoteSummary.result && data.summary.quoteSummary.result[0]
-    const chart = data.quote && data.quote.chart && data.quote.chart.result && data.quote.chart.result[0]
-    const news = (data.news && data.news.news) || []
-    const hist = data.hist && data.hist.chart && data.hist.chart.result && data.hist.chart.result[0]
+    var yq = data.yahoo && data.yahoo.quote && data.yahoo.quote.chart && data.yahoo.quote.chart.result && data.yahoo.quote.chart.result[0]
+    var ys = data.yahoo && data.yahoo.summary && data.yahoo.summary.quoteSummary && data.yahoo.summary.quoteSummary.result && data.yahoo.summary.quoteSummary.result[0]
+    var yh = data.yahoo && data.yahoo.hist && data.yahoo.hist.chart && data.yahoo.hist.chart.result && data.yahoo.hist.chart.result[0]
+    var news = (data.news && data.news.articles) || []
+    var fmpR = data.fmp && data.fmp.ratios && data.fmp.ratios[0]
+    var fmpI = (data.fmp && data.fmp.income) || []
+    var fmpIns = (data.fmp && data.fmp.insider) || []
+    var fmpE = (data.fmp && data.fmp.earnings) || []
+    var macro = data.macro || {}
 
-    const currentPrice = (price && price.price && price.price.regularMarketPrice && price.price.regularMarketPrice.raw) || (chart && chart.meta && chart.meta.regularMarketPrice) || 0
-    const prevClose = (price && price.price && price.price.regularMarketPreviousClose && price.price.regularMarketPreviousClose.raw) || (chart && chart.meta && chart.meta.chartPreviousClose) || 0
-    const changePct = prevClose ? ((currentPrice - prevClose) / prevClose * 100) : 0
+    var price = ys || {}
+    var fd = (price.financialData) || {}
+    var ks = (price.defaultKeyStatistics) || {}
+    var sd = (price.summaryDetail) || {}
+    var pp = (price.price) || {}
 
-    const fd = (price && price.financialData) || {}
-    const ks = (price && price.defaultKeyStatistics) || {}
-    const sd = (price && price.summaryDetail) || {}
+    var currentPrice = (pp.regularMarketPrice && pp.regularMarketPrice.raw) || (yq && yq.meta && yq.meta.regularMarketPrice) || 0
+    var prevClose = (pp.regularMarketPreviousClose && pp.regularMarketPreviousClose.raw) || (yq && yq.meta && yq.meta.chartPreviousClose) || 0
+    var changePct = prevClose ? ((currentPrice - prevClose) / prevClose * 100) : 0
+    var volume = (pp.regularMarketVolume && pp.regularMarketVolume.raw) || 0
+    var avgVolume = (pp.averageDailyVolume10Day && pp.averageDailyVolume10Day.raw) || 0
 
-    const rawCloses = hist && hist.indicators && hist.indicators.quote && hist.indicators.quote[0] && hist.indicators.quote[0].close
-    const closes = (rawCloses || []).filter(function(x) { return x != null })
-    const rawHighs = hist && hist.indicators && hist.indicators.quote && hist.indicators.quote[0] && hist.indicators.quote[0].high
-    const highs = (rawHighs || []).filter(function(x) { return x != null })
-    const rawLows = hist && hist.indicators && hist.indicators.quote && hist.indicators.quote[0] && hist.indicators.quote[0].low
-    const lows = (rawLows || []).filter(function(x) { return x != null })
+    var rawCloses = yh && yh.indicators && yh.indicators.quote && yh.indicators.quote[0] && yh.indicators.quote[0].close
+    var closes = (rawCloses || []).filter(function(x) { return x != null })
+    var rawHighs = yh && yh.indicators && yh.indicators.quote && yh.indicators.quote[0] && yh.indicators.quote[0].high
+    var highs = (rawHighs || []).filter(function(x) { return x != null })
+    var rawLows = yh && yh.indicators && yh.indicators.quote && yh.indicators.quote[0] && yh.indicators.quote[0].low
+    var lows = (rawLows || []).filter(function(x) { return x != null })
 
-    var rsi = null
-    if (closes.length >= 15) {
-      var gains = []
-      var losses = []
+    var rsiOfficial = null
+    var avRsiData = data.av && data.av.rsi && data.av.rsi['Technical Analysis: RSI']
+    if (avRsiData) {
+      var latestRsiDate = Object.keys(avRsiData)[0]
+      if (latestRsiDate) rsiOfficial = parseFloat(avRsiData[latestRsiDate].RSI).toFixed(1)
+    }
+
+    var macdSignal = null
+    var avMacdData = data.av && data.av.macd && data.av.macd['Technical Analysis: MACD']
+    if (avMacdData) {
+      var latestMacdDate = Object.keys(avMacdData)[0]
+      if (latestMacdDate) {
+        var macdVal = parseFloat(avMacdData[latestMacdDate].MACD)
+        var macdSignalVal = parseFloat(avMacdData[latestMacdDate].MACD_Signal)
+        macdSignal = macdVal > macdSignalVal ? 'Haussier' : 'Baissier'
+      }
+    }
+
+    var bbandsData = null
+    var avBbandsData = data.av && data.av.bbands && data.av.bbands['Technical Analysis: BBANDS']
+    if (avBbandsData) {
+      var latestBbDate = Object.keys(avBbandsData)[0]
+      if (latestBbDate) {
+        bbandsData = {
+          upper: parseFloat(avBbandsData[latestBbDate]['Real Upper Band']).toFixed(2),
+          middle: parseFloat(avBbandsData[latestBbDate]['Real Middle Band']).toFixed(2),
+          lower: parseFloat(avBbandsData[latestBbDate]['Real Lower Band']).toFixed(2)
+        }
+      }
+    }
+
+    var rsiCalc = null
+    if (!rsiOfficial && closes.length >= 15) {
+      var gains = [], losses = []
       for (var i = 1; i < closes.length; i++) {
-        var diff = closes[i] - closes[i - 1]
+        var diff = closes[i] - closes[i-1]
         gains.push(diff > 0 ? diff : 0)
         losses.push(diff < 0 ? Math.abs(diff) : 0)
       }
-      var last14g = gains.slice(-14)
-      var last14l = losses.slice(-14)
-      var avgG = last14g.reduce(function(a, b) { return a + b }, 0) / 14
-      var avgL = last14l.reduce(function(a, b) { return a + b }, 0) / 14
-      rsi = avgL === 0 ? 100 : Math.round(100 - (100 / (1 + avgG / avgL)))
+      var avgG = gains.slice(-14).reduce(function(a,b){return a+b},0)/14
+      var avgL = losses.slice(-14).reduce(function(a,b){return a+b},0)/14
+      rsiCalc = avgL === 0 ? 100 : Math.round(100-(100/(1+avgG/avgL)))
     }
 
-    var sma20 = null
-    var sma50 = null
-    if (closes.length >= 20) {
-      sma20 = (closes.slice(-20).reduce(function(a, b) { return a + b }, 0) / 20).toFixed(2)
-    }
-    if (closes.length >= 50) {
-      sma50 = (closes.slice(-50).reduce(function(a, b) { return a + b }, 0) / 50).toFixed(2)
-    }
+    var sma20 = closes.length>=20 ? (closes.slice(-20).reduce(function(a,b){return a+b},0)/20).toFixed(2) : null
+    var sma50 = closes.length>=50 ? (closes.slice(-50).reduce(function(a,b){return a+b},0)/50).toFixed(2) : null
 
-    var bollinger = null
-    if (closes.length >= 20) {
+    var bollingerCalc = null
+    if (!bbandsData && closes.length>=20) {
       var last20 = closes.slice(-20)
-      var mean = last20.reduce(function(a, b) { return a + b }, 0) / 20
-      var variance = last20.reduce(function(a, b) { return a + Math.pow(b - mean, 2) }, 0) / 20
-      var std = Math.sqrt(variance)
-      bollinger = {
-        upper: (mean + 2 * std).toFixed(2),
-        middle: mean.toFixed(2),
-        lower: (mean - 2 * std).toFixed(2)
-      }
+      var mean = last20.reduce(function(a,b){return a+b},0)/20
+      var std = Math.sqrt(last20.reduce(function(a,b){return a+Math.pow(b-mean,2)},0)/20)
+      bollingerCalc = { upper:(mean+2*std).toFixed(2), middle:mean.toFixed(2), lower:(mean-2*std).toFixed(2) }
     }
 
-    var support = lows.length > 0 ? Math.min.apply(null, lows.slice(-20)).toFixed(2) : null
-    var resistance = highs.length > 0 ? Math.max.apply(null, highs.slice(-20)).toFixed(2) : null
-    var newsHeadlines = news.slice(0, 6).map(function(n) { return n.title }).filter(Boolean)
+    var support = lows.length>0 ? Math.min.apply(null,lows.slice(-20)).toFixed(2) : null
+    var resistance = highs.length>0 ? Math.max.apply(null,highs.slice(-20)).toFixed(2) : null
+
+    var yahooNews = []
+    var yahooNewsRaw = data.yahoo && data.yahoo.quote && data.yahoo.quote.chart
+    var newsHeadlines = news.slice(0,8).map(function(n){ return { title: n.title, source: n.source && n.source.name, url: n.url } })
+    if (newsHeadlines.length === 0 && data.news === null) {
+      newsHeadlines = []
+    }
+
+    var quarterlyData = fmpI.slice(0,4).map(function(q) {
+      return {
+        date: q.date,
+        revenue: q.revenue,
+        netIncome: q.netIncome,
+        eps: q.eps,
+        revenueGrowth: q.revenueGrowth
+      }
+    })
+
+    var insiderTrades = fmpIns.slice(0,6).map(function(t) {
+      return {
+        name: t.reportingName,
+        type: t.transactionType,
+        shares: t.securitiesTransacted,
+        price: t.price,
+        date: t.transactionDate
+      }
+    })
+
+    var nextEarnings = fmpE && fmpE[0] ? fmpE[0].date : null
+
+    var fedRate = null
+    if (macro.fedRate && macro.fedRate.observations && macro.fedRate.observations[0]) {
+      fedRate = macro.fedRate.observations[0].value
+    }
+    var cpi = null
+    var cpiPrev = null
+    if (macro.cpi && macro.cpi.observations) {
+      cpi = macro.cpi.observations[0] && macro.cpi.observations[0].value
+      cpiPrev = macro.cpi.observations[1] && macro.cpi.observations[1].value
+    }
+    var vix = null
+    if (macro.vix && macro.vix.observations && macro.vix.observations[0]) {
+      vix = parseFloat(macro.vix.observations[0].value).toFixed(1)
+    }
+
+    var sources = ['Yahoo Finance']
+    if (rsiOfficial) sources.push('Alpha Vantage')
+    if (fmpR) sources.push('FMP')
+    if (newsHeadlines.length > 0 && data.news) sources.push('NewsAPI')
+    if (fedRate) sources.push('FRED')
 
     return {
       ticker: ticker,
       currentPrice: currentPrice.toFixed(2),
       changePct: changePct.toFixed(2),
-      marketCap: price && price.price && price.price.marketCap && price.price.marketCap.fmt,
-      per: (sd.trailingPE && sd.trailingPE.raw) || (ks.trailingPE && ks.trailingPE.raw),
-      eps: ks.trailingEps && ks.trailingEps.raw,
+      volume: volume,
+      avgVolume: avgVolume,
+      marketCap: pp.marketCap && pp.marketCap.fmt,
+      rsi: rsiOfficial || rsiCalc,
+      rsiSource: rsiOfficial ? 'Alpha Vantage' : 'Calcule',
+      macd: macdSignal,
+      bollinger: bbandsData || bollingerCalc,
+      bollingerSource: bbandsData ? 'Alpha Vantage' : 'Calcule',
+      sma20: sma20,
+      sma50: sma50,
+      support: support,
+      resistance: resistance,
+      per: fmpR && fmpR.peRatioTTM ? fmpR.peRatioTTM.toFixed(1) : ((sd.trailingPE && sd.trailingPE.raw) || (ks.trailingPE && ks.trailingPE.raw)),
+      eps: fmpR && fmpR.epsTTM ? fmpR.epsTTM.toFixed(2) : (ks.trailingEps && ks.trailingEps.raw),
+      roe: fmpR && fmpR.returnOnEquityTTM ? (fmpR.returnOnEquityTTM * 100).toFixed(1) + '%' : null,
+      roa: fmpR && fmpR.returnOnAssetsTTM ? (fmpR.returnOnAssetsTTM * 100).toFixed(1) + '%' : null,
+      debtEquity: fmpR && fmpR.debtEquityRatioTTM ? fmpR.debtEquityRatioTTM.toFixed(2) : (fd.debtToEquity && fd.debtToEquity.raw),
+      freeCashflow: fd.freeCashflow && fd.freeCashflow.fmt,
       revenue: fd.totalRevenue && fd.totalRevenue.fmt,
       revenueGrowth: fd.revenueGrowth && fd.revenueGrowth.fmt,
       grossMargins: fd.grossMargins && fd.grossMargins.fmt,
-      debtToEquity: fd.debtToEquity && fd.debtToEquity.raw,
-      freeCashflow: fd.freeCashflow && fd.freeCashflow.fmt,
-      currentRatio: fd.currentRatio && fd.currentRatio.raw,
-      rsi: rsi,
-      sma20: sma20,
-      sma50: sma50,
-      bollinger: bollinger,
-      support: support,
-      resistance: resistance,
+      currentRatio: fmpR && fmpR.currentRatioTTM ? fmpR.currentRatioTTM.toFixed(2) : (fd.currentRatio && fd.currentRatio.raw),
+      quarterlyData: quarterlyData,
+      insiderTrades: insiderTrades,
+      nextEarnings: nextEarnings,
+      newsHeadlines: newsHeadlines,
+      fedRate: fedRate,
+      cpi: cpi,
+      cpiPrev: cpiPrev,
+      vix: vix,
       closes: closes.slice(-30),
-      newsHeadlines: newsHeadlines
+      sources: sources
     }
   } catch (e) {
-    throw new Error('Erreur lecture donnees Yahoo Finance: ' + e.message)
+    throw new Error('Erreur parsing: ' + e.message)
   }
 }
 
 async function analyzeWithGemini(raw) {
-  var bollingerText = raw.bollinger
-    ? 'Sup:$' + raw.bollinger.upper + ' Inf:$' + raw.bollinger.lower
-    : 'N/A'
+  var bollingerText = raw.bollinger ? 'Sup:$' + raw.bollinger.upper + ' Inf:$' + raw.bollinger.lower : 'N/A'
+  var macroText = 'Taux Fed:' + (raw.fedRate || 'N/A') + '% | CPI:' + (raw.cpi || 'N/A') + ' | VIX:' + (raw.vix || 'N/A')
+  var newsText = raw.newsHeadlines.slice(0,5).map(function(n){ return n.title }).join(' | ')
+  var quarterText = raw.quarterlyData.slice(0,2).map(function(q){ return q.date + ':Rev=' + q.revenue + ',EPS=' + q.eps }).join(' | ')
+  var insiderText = raw.insiderTrades.slice(0,3).map(function(t){ return t.name + ':' + t.type }).join(' | ')
 
-  var newsText = raw.newsHeadlines.slice(0, 4).join(' | ')
-
-  var prompt = 'Tu es expert analyste financier. Analyse ces donnees REELLES de ' + raw.ticker + ':\n'
-    + 'Prix: $' + raw.currentPrice + ' (' + raw.changePct + '%) | RSI: ' + (raw.rsi || 'N/A')
-    + ' | SMA20: $' + (raw.sma20 || 'N/A') + ' | SMA50: $' + (raw.sma50 || 'N/A') + '\n'
-    + 'Bollinger: ' + bollingerText + '\n'
-    + 'Support: $' + (raw.support || 'N/A') + ' | Resistance: $' + (raw.resistance || 'N/A') + '\n'
-    + 'PER: ' + (raw.per ? raw.per.toFixed(1) : 'N/A') + ' | EPS: $' + (raw.eps ? raw.eps.toFixed(2) : 'N/A') + ' | Cap: ' + (raw.marketCap || 'N/A') + '\n'
-    + 'Revenue: ' + (raw.revenue || 'N/A') + ' | Croissance: ' + (raw.revenueGrowth || 'N/A') + ' | FCF: ' + (raw.freeCashflow || 'N/A') + '\n'
-    + 'News: ' + newsText + '\n'
-    + 'Reponds UNIQUEMENT en JSON valide:\n'
-    + '{"signal":"ACHETER|VENDRE|ATTENDRE","news_sentiment":0.0,"news_sentiment_label":"Positif|Negatif|Neutre","news_summary":"","technical_trend":"Haussiere|Baissiere|Neutre","technical_rsi_signal":"","technical_macd":"Haussier|Baissier|Neutre","technical_bollinger":"","technical_summary":"","fundamental_score":0,"fundamental_per_analysis":"","fundamental_health":"Excellent|Bon|Moyen|Faible","fundamental_summary":"","prediction_trend_7d":"","prediction_probability_up":0,"prediction_target":0,"prediction_risk":"Faible|Modere|Eleve","prediction_summary":"","recommendation":""}'
+  var prompt = 'Tu es expert analyste financier senior avec acces a plusieurs sources de donnees. Analyse complete de ' + raw.ticker + ':\n\n'
+    + 'PRIX: $' + raw.currentPrice + ' (' + raw.changePct + '%) | Cap: ' + (raw.marketCap || 'N/A') + '\n'
+    + 'TECHNIQUE (' + raw.rsiSource + '): RSI=' + (raw.rsi || 'N/A') + ' | MACD=' + (raw.macd || 'N/A') + ' | Bollinger=' + bollingerText + '\n'
+    + 'SMA20=$' + (raw.sma20 || 'N/A') + ' | SMA50=$' + (raw.sma50 || 'N/A') + ' | Support=$' + (raw.support || 'N/A') + ' | Resistance=$' + (raw.resistance || 'N/A') + '\n'
+    + 'FONDAMENTAUX: PER=' + (raw.per || 'N/A') + ' | EPS=$' + (raw.eps || 'N/A') + ' | ROE=' + (raw.roe || 'N/A') + ' | ROA=' + (raw.roa || 'N/A') + '\n'
+    + 'FCF=' + (raw.freeCashflow || 'N/A') + ' | Revenue=' + (raw.revenue || 'N/A') + ' | Croissance=' + (raw.revenueGrowth || 'N/A') + ' | Marge=' + (raw.grossMargins || 'N/A') + '\n'
+    + 'RESULTATS TRIMESTRIELS: ' + (quarterText || 'N/A') + '\n'
+    + 'INSIDER TRADING: ' + (insiderText || 'N/A') + '\n'
+    + 'MACRO (FRED): ' + macroText + '\n'
+    + 'NEWS (' + raw.newsHeadlines.length + ' sources): ' + (newsText || 'N/A') + '\n\n'
+    + 'Sources utilisees: ' + raw.sources.join(', ') + '\n\n'
+    + 'Reponds UNIQUEMENT en JSON:\n'
+    + '{"signal":"ACHETER|VENDRE|ATTENDRE","confidence":0,"news_sentiment":0.0,"news_sentiment_label":"","news_summary":"","technical_trend":"","technical_rsi_signal":"","technical_macd":"","technical_bollinger":"","technical_summary":"","fundamental_score":0,"fundamental_per_analysis":"","fundamental_health":"","fundamental_summary":"","insider_signal":"Achat massif|Vente massive|Mixte|Neutre","insider_summary":"","macro_impact":"Positif|Negatif|Neutre","macro_summary":"","prediction_trend_7d":"","prediction_probability_up":0,"prediction_target":0,"prediction_risk":"Faible|Modere|Eleve","prediction_summary":"","recommendation":""}'
 
   var res = await fetch('/api/ai', {
     method: 'POST',
@@ -135,9 +228,8 @@ async function analyzeWithGemini(raw) {
   var d = await res.json()
   if (d.error) throw new Error(d.error)
   var text = (d.result || '{}').replace(/```json/g, '').replace(/```/g, '').trim()
-  var start = text.indexOf('{')
-  var end = text.lastIndexOf('}')
-  if (start !== -1 && end !== -1) text = text.slice(start, end + 1)
+  var s = text.indexOf('{'), e = text.lastIndexOf('}')
+  if (s !== -1 && e !== -1) text = text.slice(s, e+1)
   return JSON.parse(text)
 }
 
@@ -147,39 +239,6 @@ function Loading() {
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.muted, display: 'inline-block', animation: 'p 1.2s 0ms ease-in-out infinite' }} />
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.muted, display: 'inline-block', animation: 'p 1.2s 200ms ease-in-out infinite' }} />
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: C.muted, display: 'inline-block', animation: 'p 1.2s 400ms ease-in-out infinite' }} />
-    </div>
-  )
-}
-
-function SentimentBar(props) {
-  var value = props.value || 0.5
-  var pct = Math.round(value * 100)
-  var color = pct > 60 ? C.green : pct < 40 ? C.red : C.amber
-  return (
-    <div style={{ margin: '8px 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.muted, marginBottom: 4 }}>
-        <span>Negatif</span>
-        <span style={{ color: color, fontWeight: 600 }}>{pct}% positif</span>
-        <span>Positif</span>
-      </div>
-      <div style={{ height: 4, borderRadius: 2, background: C.surface }}>
-        <div style={{ height: '100%', width: pct + '%', borderRadius: 2, background: color }} />
-      </div>
-    </div>
-  )
-}
-
-function RsiGauge(props) {
-  var value = props.value
-  var v = Math.min(100, Math.max(0, Number(value) || 50))
-  var color = v > 70 ? C.red : v < 30 ? C.green : C.amber
-  var label = v > 70 ? 'Sur-achete' : v < 30 ? 'Sur-vendu' : 'Zone neutre'
-  return (
-    <div>
-      <div style={{ height: 4, borderRadius: 2, background: C.surface, position: 'relative', margin: '8px 0' }}>
-        <div style={{ position: 'absolute', left: 'calc(' + v + '% - 5px)', top: -4, width: 12, height: 12, borderRadius: '50%', background: color, border: '2px solid ' + C.bg }} />
-      </div>
-      <div style={{ fontSize: 11, color: color, textAlign: 'right' }}>RSI {v} - {label}</div>
     </div>
   )
 }
@@ -197,7 +256,36 @@ function MCard(props) {
   return (
     <div style={{ background: C.surface, borderRadius: 8, padding: '10px 12px', border: '1px solid ' + C.border }}>
       <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{props.label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: props.color || C.text }}>{props.value != null ? props.value : '—'}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: props.color || C.text }}>{props.value != null ? props.value : '—'}</div>
+    </div>
+  )
+}
+
+function SBar(props) {
+  var pct = Math.round((props.value || 0.5) * 100)
+  var c = pct > 60 ? C.green : pct < 40 ? C.red : C.amber
+  return (
+    <div style={{ margin: '8px 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.muted, marginBottom: 4 }}>
+        <span>Negatif</span><span style={{ color: c, fontWeight: 600 }}>{pct}%</span><span>Positif</span>
+      </div>
+      <div style={{ height: 4, borderRadius: 2, background: C.surface }}>
+        <div style={{ height: '100%', width: pct + '%', borderRadius: 2, background: c }} />
+      </div>
+    </div>
+  )
+}
+
+function RsiGauge(props) {
+  var v = Math.min(100, Math.max(0, Number(props.value) || 50))
+  var c = v > 70 ? C.red : v < 30 ? C.green : C.amber
+  var label = v > 70 ? 'Sur-achete' : v < 30 ? 'Sur-vendu' : 'Neutre'
+  return (
+    <div>
+      <div style={{ height: 4, borderRadius: 2, background: C.surface, position: 'relative', margin: '8px 0' }}>
+        <div style={{ position: 'absolute', left: 'calc(' + v + '% - 5px)', top: -4, width: 12, height: 12, borderRadius: '50%', background: c, border: '2px solid ' + C.bg }} />
+      </div>
+      <div style={{ fontSize: 11, color: c, textAlign: 'right' }}>RSI {v} - {label} ({props.source})</div>
     </div>
   )
 }
@@ -209,19 +297,18 @@ function Section(props) {
         <span>{props.title}</span>
         <span style={{ fontSize: 16 }}>{props.expanded ? '-' : '+'}</span>
       </button>
-      {props.expanded && (
-        <div style={{ fontSize: 13, lineHeight: 1.7, paddingBottom: 8 }}>
-          {props.children}
-        </div>
-      )}
+      {props.expanded && <div style={{ fontSize: 13, lineHeight: 1.7, paddingBottom: 8 }}>{props.children}</div>}
     </div>
   )
+}
+
+function SourceBadge(props) {
+  return <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: C.surface, color: C.muted, border: '1px solid ' + C.border, marginLeft: 4 }}>{props.name}</span>
 }
 
 function StockCard(props) {
   var ticker = props.ticker
   var data = props.data
-  var onAnalyze = props.onAnalyze
   var [exp, setExp] = useState({})
   var tog = function(k) { setExp(function(p) { var n = Object.assign({}, p); n[k] = !p[k]; return n }) }
   var sig = (data && data.ai && data.ai.signal) || 'ATTENDRE'
@@ -238,91 +325,149 @@ function StockCard(props) {
           {raw && (
             <div style={{ fontSize: 14, color: C.muted, fontFamily: 'monospace' }}>
               ${raw.currentPrice}
-              <span style={{ marginLeft: 8, color: chg >= 0 ? C.green : C.red, fontWeight: 600 }}>
-                {chg >= 0 ? '+' : ''}{chg}%
-              </span>
+              <span style={{ marginLeft: 8, color: chg >= 0 ? C.green : C.red, fontWeight: 600 }}>{chg >= 0 ? '+' : ''}{chg}%</span>
               {raw.marketCap && <span style={{ marginLeft: 8, fontSize: 12 }}>{raw.marketCap}</span>}
+            </div>
+          )}
+          {raw && raw.sources && (
+            <div style={{ marginTop: 4 }}>
+              {raw.sources.map(function(s) { return <SourceBadge key={s} name={s} /> })}
             </div>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {!data?.loading && !data?.error && ai && (
-            <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg, border: '1px solid ' + sc.border }}>
-              {sig}
-            </span>
+          {!(data && data.loading) && !(data && data.error) && ai && (
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg, border: '1px solid ' + sc.border }}>{sig}</span>
+              {ai.confidence && <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Confiance: {ai.confidence}%</div>}
+            </div>
           )}
-          <button onClick={onAnalyze} style={{ padding: '8px 12px', background: C.surface, border: '1px solid ' + C.border, borderRadius: 8, color: C.text, cursor: 'pointer', fontSize: 16 }}>
-            ↻
-          </button>
+          <button onClick={props.onAnalyze} style={{ padding: '8px 12px', background: C.surface, border: '1px solid ' + C.border, borderRadius: 8, color: C.text, cursor: 'pointer', fontSize: 16 }}>↻</button>
         </div>
       </div>
 
       {data && data.loading && <Loading />}
-      {data && data.error && (
-        <div style={{ color: C.red, fontSize: 12, padding: 8, background: '#1a0505', borderRadius: 6 }}>
-          {data.error}
-        </div>
-      )}
+      {data && data.error && <div style={{ color: C.red, fontSize: 12, padding: 8, background: '#1a0505', borderRadius: 6 }}>{data.error}</div>}
 
       {raw && ai && !(data && data.loading) && (
         <div>
-          <Section title="News et Sentiment" expanded={exp.news} onToggle={function() { tog('news') }}>
-            <SentimentBar value={ai.news_sentiment} />
-            <div style={{ background: C.surface, borderRadius: 6, padding: '8px 10px', margin: '6px 0' }}>
-              {raw.newsHeadlines.map(function(h, i) {
-                return <div key={i} style={{ fontSize: 11, color: C.muted, paddingLeft: 8, borderLeft: '2px solid ' + C.border, marginBottom: 3 }}>· {h}</div>
+          <Section title="Macro (FRED)" expanded={exp.macro} onToggle={function() { tog('macro') }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <MCard label="Taux Fed" value={raw.fedRate ? raw.fedRate + '%' : null} color={parseFloat(raw.fedRate) > 4 ? C.red : C.green} />
+              <MCard label="CPI Inflation" value={raw.cpi || null} color={parseFloat(raw.cpi) > 3 ? C.red : C.green} />
+              <MCard label="VIX Volatilite" value={raw.vix || null} color={parseFloat(raw.vix) > 25 ? C.red : parseFloat(raw.vix) < 15 ? C.green : C.amber} />
+            </div>
+            <div style={{ padding: '8px 10px', background: C.surface, borderRadius: 6, fontSize: 12, color: C.muted }}>
+              Impact marche: <span style={{ color: ai.macro_impact === 'Positif' ? C.green : ai.macro_impact === 'Negatif' ? C.red : C.amber, fontWeight: 600 }}>{ai.macro_impact}</span>
+              <div style={{ marginTop: 4 }}>{ai.macro_summary}</div>
+            </div>
+          </Section>
+
+          <Section title="News Multi-Sources" expanded={exp.news} onToggle={function() { tog('news') }}>
+            <SBar value={ai.news_sentiment} />
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Sentiment: <span style={{ color: C.text }}>{ai.news_sentiment_label}</span> · {raw.newsHeadlines.length} articles</div>
+            <div style={{ background: C.surface, borderRadius: 6, padding: '8px 10px', marginBottom: 8 }}>
+              {raw.newsHeadlines.map(function(n, i) {
+                return (
+                  <div key={i} style={{ fontSize: 11, color: C.muted, paddingLeft: 8, borderLeft: '2px solid ' + C.border, marginBottom: 4 }}>
+                    · {n.title}
+                    {n.source && <span style={{ color: C.blue, marginLeft: 4 }}>({n.source})</span>}
+                  </div>
+                )
               })}
             </div>
             <div style={{ color: C.muted }}>{ai.news_summary}</div>
           </Section>
 
           <Section title="Analyse Technique" expanded={exp.tech} onToggle={function() { tog('tech') }}>
-            {raw.rsi && (
-              <div>
-                <div style={{ fontSize: 11, color: C.muted }}>RSI ({raw.rsi})</div>
-                <RsiGauge value={raw.rsi} />
-              </div>
-            )}
+            {raw.rsi && <RsiGauge value={raw.rsi} source={raw.rsiSource} />}
             <MRow label="Tendance" value={ai.technical_trend} color={ai.technical_trend === 'Haussiere' ? C.green : ai.technical_trend === 'Baissiere' ? C.red : C.amber} />
-            <MRow label="MACD" value={ai.technical_macd} color={ai.technical_macd === 'Haussier' ? C.green : ai.technical_macd === 'Baissier' ? C.red : C.amber} />
-            <MRow label="Bollinger" value={ai.technical_bollinger} />
-            <MRow label="SMA 20j" value={raw.sma20 ? '$' + raw.sma20 : null} />
-            <MRow label="SMA 50j" value={raw.sma50 ? '$' + raw.sma50 : null} />
+            <MRow label="MACD" value={raw.macd || ai.technical_macd} color={raw.macd === 'Haussier' ? C.green : raw.macd === 'Baissier' ? C.red : C.amber} />
             {raw.bollinger && (
               <div>
-                <MRow label="Bande sup." value={'$' + raw.bollinger.upper} color={C.red} />
-                <MRow label="Bande inf." value={'$' + raw.bollinger.lower} color={C.green} />
+                <MRow label={'Boll. Sup. (' + raw.bollingerSource + ')'} value={'$' + raw.bollinger.upper} color={C.red} />
+                <MRow label="Boll. Mid." value={'$' + raw.bollinger.middle} />
+                <MRow label="Boll. Inf." value={'$' + raw.bollinger.lower} color={C.green} />
               </div>
             )}
+            <MRow label="SMA 20j" value={raw.sma20 ? '$' + raw.sma20 : null} />
+            <MRow label="SMA 50j" value={raw.sma50 ? '$' + raw.sma50 : null} />
             <MRow label="Support" value={raw.support ? '$' + raw.support : null} color={C.green} />
             <MRow label="Resistance" value={raw.resistance ? '$' + raw.resistance : null} color={C.red} />
             <div style={{ color: C.muted, marginTop: 8 }}>{ai.technical_summary}</div>
           </Section>
 
-          <Section title="Analyse Fondamentale" expanded={exp.fund} onToggle={function() { tog('fund') }}>
-            <MRow label="PER" value={raw.per ? raw.per.toFixed(1) : null} />
-            <MRow label="EPS" value={raw.eps ? '$' + raw.eps.toFixed(2) : null} />
+          <Section title="Fondamentaux (FMP + Yahoo)" expanded={exp.fund} onToggle={function() { tog('fund') }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <MCard label="PER" value={raw.per || null} />
+              <MCard label="EPS" value={raw.eps ? '$' + raw.eps : null} />
+              <MCard label="ROE" value={raw.roe || null} color={C.green} />
+              <MCard label="ROA" value={raw.roa || null} color={C.blue} />
+            </div>
             <MRow label="Revenue" value={raw.revenue} />
             <MRow label="Croissance" value={raw.revenueGrowth} color={raw.revenueGrowth && raw.revenueGrowth.startsWith('-') ? C.red : C.green} />
             <MRow label="Marge brute" value={raw.grossMargins} />
             <MRow label="Free Cash Flow" value={raw.freeCashflow} />
-            <MRow label="Dette/Capitaux" value={raw.debtToEquity ? raw.debtToEquity.toFixed(1) : null} />
-            <MRow label="Ratio courant" value={raw.currentRatio ? raw.currentRatio.toFixed(2) : null} />
-            <MRow label="Sante" value={ai.fundamental_health} />
-            <MRow label="Valorisation" value={ai.fundamental_per_analysis} />
+            <MRow label="Dette/Capitaux" value={raw.debtEquity} />
+            <MRow label="Ratio courant" value={raw.currentRatio} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
-              <div style={{ fontSize: 12, color: C.muted }}>Score:</div>
+              <div style={{ fontSize: 12, color: C.muted }}>Score sante:</div>
               <div style={{ flex: 1, height: 4, borderRadius: 2, background: C.surface }}>
-                <div style={{ height: '100%', width: ai.fundamental_score + '%', borderRadius: 2, background: ai.fundamental_score > 70 ? C.green : ai.fundamental_score > 40 ? C.amber : C.red }} />
+                <div style={{ height: '100%', width: (ai.fundamental_score || 0) + '%', borderRadius: 2, background: ai.fundamental_score > 70 ? C.green : ai.fundamental_score > 40 ? C.amber : C.red }} />
               </div>
               <div style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 600 }}>{ai.fundamental_score}/100</div>
             </div>
             <div style={{ color: C.muted }}>{ai.fundamental_summary}</div>
+
+            {raw.quarterlyData && raw.quarterlyData.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Resultats trimestriels</div>
+                {raw.quarterlyData.map(function(q, i) {
+                  return (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid ' + C.border, fontSize: 12 }}>
+                      <span style={{ color: C.muted }}>{q.date}</span>
+                      <span style={{ fontFamily: 'monospace' }}>EPS: {q.eps}</span>
+                      <span style={{ fontFamily: 'monospace', color: q.revenueGrowth > 0 ? C.green : C.red }}>{q.revenueGrowth > 0 ? '+' : ''}{q.revenueGrowth ? (q.revenueGrowth * 100).toFixed(1) + '%' : '—'}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {raw.nextEarnings && (
+              <div style={{ marginTop: 8, padding: '6px 10px', background: '#1a1a2e', borderRadius: 6, fontSize: 12, color: C.purple }}>
+                Prochains resultats: {raw.nextEarnings}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Insider Trading (FMP)" expanded={exp.insider} onToggle={function() { tog('insider') }}>
+            {raw.insiderTrades && raw.insiderTrades.length > 0 ? (
+              <div>
+                <div style={{ padding: '6px 10px', background: C.surface, borderRadius: 6, fontSize: 12, marginBottom: 8 }}>
+                  Signal: <span style={{ fontWeight: 700, color: ai.insider_signal && ai.insider_signal.includes('Achat') ? C.green : ai.insider_signal && ai.insider_signal.includes('Vente') ? C.red : C.amber }}>{ai.insider_signal}</span>
+                  <div style={{ color: C.muted, marginTop: 4 }}>{ai.insider_summary}</div>
+                </div>
+                {raw.insiderTrades.map(function(t, i) {
+                  var isBuy = t.type && (t.type.includes('Buy') || t.type.includes('Achat') || t.type.includes('P-Purchase'))
+                  return (
+                    <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', borderBottom: '1px solid ' + C.border, fontSize: 12, flexWrap: 'wrap' }}>
+                      <span style={{ color: isBuy ? C.green : C.red, fontWeight: 600 }}>{isBuy ? 'ACHAT' : 'VENTE'}</span>
+                      <span style={{ color: C.text }}>{t.name}</span>
+                      <span style={{ color: C.muted, fontFamily: 'monospace' }}>{t.shares && t.shares.toLocaleString()} actions</span>
+                      <span style={{ color: C.muted, marginLeft: 'auto' }}>{t.date}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={{ color: C.muted, fontSize: 12, padding: '8px 0' }}>Ajoutez votre cle FMP pour voir les insider trades</div>
+            )}
           </Section>
 
           <Section title="Prediction IA 7 jours" expanded={exp.pred} onToggle={function() { tog('pred') }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-              <MCard label="Probabilite hausse" value={ai.prediction_probability_up + '%'} color={ai.prediction_probability_up > 60 ? C.green : ai.prediction_probability_up < 40 ? C.red : C.amber} />
+              <MCard label="Probabilite hausse" value={(ai.prediction_probability_up || 0) + '%'} color={ai.prediction_probability_up > 60 ? C.green : ai.prediction_probability_up < 40 ? C.red : C.amber} />
               <MCard label="Prix cible 7j" value={ai.prediction_target ? '$' + ai.prediction_target : null} />
             </div>
             <MRow label="Tendance 7j" value={ai.prediction_trend_7d} />
@@ -334,7 +479,7 @@ function StockCard(props) {
             {ai.recommendation}
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-            Yahoo Finance · Gemini AI · {data.date}
+            {raw.sources && raw.sources.join(' · ')} · {data.date}
           </div>
         </div>
       )}
@@ -361,7 +506,7 @@ export default function App() {
   var analyze = useCallback(async function(ticker) {
     setData(function(p) { var n = Object.assign({}, p); n[ticker] = { loading: true }; return n })
     try {
-      var raw = parseYahooData(await fetchStockData(ticker), ticker)
+      var raw = parseAllData(await fetchStockData(ticker), ticker)
       var ai = await analyzeWithGemini(raw)
       var date = new Date().toLocaleString('fr-BE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
       setData(function(p) { var n = Object.assign({}, p); n[ticker] = { raw: raw, ai: ai, date: date }; return n })
@@ -372,9 +517,7 @@ export default function App() {
 
   var runAll = async function() {
     setRunning(true)
-    for (var i = 0; i < tickers.length; i++) {
-      await analyze(tickers[i])
-    }
+    for (var i = 0; i < tickers.length; i++) { await analyze(tickers[i]) }
     setRunning(false)
   }
 
@@ -386,50 +529,40 @@ export default function App() {
 
   var addAlert = function() {
     if (!alertForm.ticker || !alertForm.value) return
-    var newAlert = Object.assign({}, alertForm, { id: Date.now(), ticker: alertForm.ticker.toUpperCase() })
-    setAlerts(function(p) { return p.concat([newAlert]) })
+    setAlerts(function(p) { return p.concat([Object.assign({}, alertForm, { id: Date.now(), ticker: alertForm.ticker.toUpperCase() })]) })
     setAlertForm({ ticker: '', type: 'price', value: '', direction: 'above' })
   }
 
   var runBacktest = async function() {
-    setBtLoading(true)
-    setBtResult(null)
+    setBtLoading(true); setBtResult(null)
     try {
-      var raw = parseYahooData(await fetchStockData(btTicker), btTicker)
-      var prompt = 'Expert backtest. Donnees reelles ' + btTicker + ': Prix=' + raw.currentPrice + ', RSI=' + raw.rsi + ', SMA20=' + raw.sma20 + ', SMA50=' + raw.sma50 + ', Support=' + raw.support + ', Resistance=' + raw.resistance + ', Historique30j=[' + (raw.closes || []).join(',') + ']. Strategie: "' + btStrategy + '". Reponds JSON: {"strategy":"","ticker":"","period":"30j","total_return":"","win_rate":"","max_drawdown":"","nb_trades":0,"sharpe_ratio":"","vs_buy_hold":"","trades":[{"date":"","action":"ACHAT|VENTE","price":0,"return_pct":null,"reason":""}],"summary":""}'
+      var raw = parseAllData(await fetchStockData(btTicker), btTicker)
+      var prompt = 'Backtest "' + btStrategy + '" sur ' + btTicker + '. Donnees: Prix=' + raw.currentPrice + ', RSI=' + raw.rsi + ' (' + raw.rsiSource + '), MACD=' + raw.macd + ', SMA20=' + raw.sma20 + ', SMA50=' + raw.sma50 + ', Support=' + raw.support + ', Resistance=' + raw.resistance + ', Historique30j=[' + (raw.closes||[]).join(',') + ']. Sources: ' + raw.sources.join(',') + '. Reponds JSON: {"strategy":"","ticker":"","period":"","total_return":"","win_rate":"","max_drawdown":"","nb_trades":0,"sharpe_ratio":"","vs_buy_hold":"","trades":[{"date":"","action":"ACHAT|VENTE","price":0,"return_pct":null,"reason":""}],"summary":""}'
       var res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: prompt }) })
       var d = await res.json()
       var text = (d.result || '{}').replace(/```json/g, '').replace(/```/g, '').trim()
       setBtResult(JSON.parse(text))
-    } catch (e) {
-      setBtResult({ error: e.message })
-    }
+    } catch (e) { setBtResult({ error: e.message }) }
     setBtLoading(false)
   }
 
-  var inputStyle = { width: '100%', background: C.surface, border: '1px solid ' + C.border, borderRadius: 8, padding: '10px 12px', fontSize: 14, color: C.text, marginBottom: 8 }
-  var selectStyle = { width: '100%', background: C.surface, border: '1px solid ' + C.border, borderRadius: 8, padding: '10px 12px', fontSize: 13, color: C.text, marginBottom: 8 }
-  var btnPrimary = { width: '100%', padding: 12, background: C.text, color: C.bg, border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
-  var cardStyle = { background: C.card, border: '1px solid ' + C.border, borderRadius: 12, padding: 16, marginBottom: 12 }
+  var IS = { width: '100%', background: C.surface, border: '1px solid ' + C.border, borderRadius: 8, padding: '10px 12px', fontSize: 14, color: C.text, marginBottom: 8 }
+  var SS = { width: '100%', background: C.surface, border: '1px solid ' + C.border, borderRadius: 8, padding: '10px 12px', fontSize: 13, color: C.text, marginBottom: 8 }
+  var BP = { width: '100%', padding: 12, background: C.text, color: C.bg, border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }
+  var CS = { background: C.card, border: '1px solid ' + C.border, borderRadius: 12, padding: 16, marginBottom: 12 }
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh', paddingBottom: 80, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <style>{'@keyframes p { 0%,100%{opacity:.2} 50%{opacity:1} } input::placeholder{color:#444}'}</style>
+      <style>{'@keyframes p{0%,100%{opacity:.2}50%{opacity:1}} input::placeholder{color:#444}'}</style>
 
       <div style={{ background: C.card, borderBottom: '1px solid ' + C.border, padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: C.text }}>Stock Agent Pro</div>
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Yahoo Finance · Gemini AI · 100% gratuit</div>
+        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Yahoo · Alpha Vantage · FMP · NewsAPI · FRED · Gemini AI</div>
       </div>
 
       <div style={{ display: 'flex', background: C.card, borderBottom: '1px solid ' + C.border, position: 'sticky', top: 57, zIndex: 9 }}>
-        {[['dashboard', 'Dashboard'], ['alerts', 'Alertes'], ['backtest', 'Backtest']].map(function(item) {
-          var id = item[0]
-          var label = item[1]
-          return (
-            <button key={id} style={{ flex: 1, padding: '11px 0', fontSize: 12, fontWeight: 500, border: 'none', background: 'none', color: tab === id ? C.text : C.muted, borderBottom: tab === id ? '2px solid ' + C.text : '2px solid transparent', cursor: 'pointer' }} onClick={function() { setTab(id) }}>
-              {label}
-            </button>
-          )
+        {[['dashboard','Dashboard'],['alerts','Alertes'],['backtest','Backtest']].map(function(item) {
+          return <button key={item[0]} style={{ flex: 1, padding: '11px 0', fontSize: 12, fontWeight: 500, border: 'none', background: 'none', color: tab === item[0] ? C.text : C.muted, borderBottom: tab === item[0] ? '2px solid ' + C.text : '2px solid transparent', cursor: 'pointer' }} onClick={function() { setTab(item[0]) }}>{item[1]}</button>
         })}
       </div>
 
@@ -437,107 +570,75 @@ export default function App() {
         {tab === 'dashboard' && (
           <div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <input value={input} onChange={function(e) { setInput(e.target.value.toUpperCase()) }} placeholder="Ajouter (AAPL, TSLA...)" onKeyDown={function(e) { if (e.key === 'Enter') addTicker() }} style={Object.assign({}, inputStyle, { flex: 1, marginBottom: 0 })} />
-              <button onClick={addTicker} style={{ padding: '10px 14px', background: C.surface, border: '1px solid ' + C.border, borderRadius: 8, color: C.text, cursor: 'pointer', fontSize: 18, flexShrink: 0 }}>+</button>
+              <input value={input} onChange={function(e){setInput(e.target.value.toUpperCase())}} placeholder="AAPL, TSLA, BTC-USD..." onKeyDown={function(e){if(e.key==='Enter')addTicker()}} style={Object.assign({},IS,{flex:1,marginBottom:0})} />
+              <button onClick={addTicker} style={{ padding:'10px 14px', background:C.surface, border:'1px solid '+C.border, borderRadius:8, color:C.text, cursor:'pointer', fontSize:18, flexShrink:0 }}>+</button>
             </div>
             <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {tickers.map(function(t) {
-                return (
-                  <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: C.surface, border: '1px solid ' + C.border, borderRadius: 20, fontSize: 12, fontWeight: 600, color: C.text, fontFamily: 'monospace' }}>
-                    {t}
-                    <span onClick={function() { setTickers(function(p) { return p.filter(function(x) { return x !== t }) }); setData(function(p) { var n = Object.assign({}, p); delete n[t]; return n }) }} style={{ cursor: 'pointer', color: C.muted }}>x</span>
-                  </span>
-                )
+                return <span key={t} style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', background:C.surface, border:'1px solid '+C.border, borderRadius:20, fontSize:12, fontWeight:600, color:C.text, fontFamily:'monospace' }}>{t}<span onClick={function(){setTickers(function(p){return p.filter(function(x){return x!==t})});setData(function(p){var n=Object.assign({},p);delete n[t];return n})}} style={{cursor:'pointer',color:C.muted}}>x</span></span>
               })}
             </div>
-            <button style={btnPrimary} onClick={runAll} disabled={running || !tickers.length}>
-              {running ? 'Analyse en cours...' : 'Tout analyser'}
-            </button>
+            <button style={BP} onClick={runAll} disabled={running||!tickers.length}>{running?'Analyse en cours...':'Tout analyser'}</button>
             <div style={{ marginTop: 12 }}>
-              {tickers.length === 0
-                ? <div style={{ textAlign: 'center', color: C.muted, padding: '40px 0', fontSize: 14 }}>Ajoutez des actions pour commencer</div>
-                : tickers.map(function(t) { return <StockCard key={t} ticker={t} data={data[t]} onAnalyze={function() { analyze(t) }} /> })
-              }
+              {tickers.length===0 ? <div style={{textAlign:'center',color:C.muted,padding:'40px 0',fontSize:14}}>Ajoutez des actions pour commencer</div> : tickers.map(function(t){return <StockCard key={t} ticker={t} data={data[t]} onAnalyze={function(){analyze(t)}} />})}
             </div>
           </div>
         )}
 
         {tab === 'alerts' && (
           <div>
-            <div style={cardStyle}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 12 }}>Nouvelle alerte</div>
-              <input placeholder="Ticker (AAPL...)" value={alertForm.ticker} onChange={function(e) { setAlertForm(function(p) { return Object.assign({}, p, { ticker: e.target.value.toUpperCase() }) }) }} style={inputStyle} />
-              <select value={alertForm.type} onChange={function(e) { setAlertForm(function(p) { return Object.assign({}, p, { type: e.target.value }) }) }} style={selectStyle}>
-                <option value="price">Prix ($)</option>
-                <option value="percent">Variation (%)</option>
-                <option value="rsi">RSI</option>
-              </select>
-              <select value={alertForm.direction} onChange={function(e) { setAlertForm(function(p) { return Object.assign({}, p, { direction: e.target.value }) }) }} style={selectStyle}>
-                <option value="above">Au-dessus de</option>
-                <option value="below">En-dessous de</option>
-              </select>
-              <input type="number" placeholder="Valeur" value={alertForm.value} onChange={function(e) { setAlertForm(function(p) { return Object.assign({}, p, { value: e.target.value }) }) }} style={inputStyle} />
-              <button style={btnPrimary} onClick={addAlert}>+ Creer l'alerte</button>
+            <div style={CS}>
+              <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:12}}>Nouvelle alerte</div>
+              <input placeholder="Ticker (AAPL...)" value={alertForm.ticker} onChange={function(e){setAlertForm(function(p){return Object.assign({},p,{ticker:e.target.value.toUpperCase()})})}} style={IS} />
+              <select value={alertForm.type} onChange={function(e){setAlertForm(function(p){return Object.assign({},p,{type:e.target.value})})}} style={SS}><option value="price">Prix ($)</option><option value="percent">Variation (%)</option><option value="rsi">RSI</option></select>
+              <select value={alertForm.direction} onChange={function(e){setAlertForm(function(p){return Object.assign({},p,{direction:e.target.value})})}} style={SS}><option value="above">Au-dessus de</option><option value="below">En-dessous de</option></select>
+              <input type="number" placeholder="Valeur" value={alertForm.value} onChange={function(e){setAlertForm(function(p){return Object.assign({},p,{value:e.target.value})})}} style={IS} />
+              <button style={BP} onClick={addAlert}>+ Creer l'alerte</button>
             </div>
-            {alerts.map(function(a) {
-              return (
-                <div key={a.id} style={Object.assign({}, cardStyle, { display: 'flex', alignItems: 'center', justifyContent: 'space-between' })}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: 'monospace' }}>{a.ticker}</div>
-                    <div style={{ fontSize: 12, color: C.muted }}>
-                      {a.direction === 'above' ? 'Au-dessus de' : 'En-dessous de'} {a.value}{a.type === 'price' ? '$' : a.type === 'percent' ? '%' : ' RSI'}
-                    </div>
-                  </div>
-                  <button onClick={function() { setAlerts(function(p) { return p.filter(function(x) { return x.id !== a.id }) }) }} style={{ background: 'none', border: 'none', color: C.red, fontSize: 18, cursor: 'pointer' }}>X</button>
-                </div>
-              )
+            {alerts.map(function(a){
+              return <div key={a.id} style={Object.assign({},CS,{display:'flex',alignItems:'center',justifyContent:'space-between'})}>
+                <div><div style={{fontSize:15,fontWeight:700,color:C.text,fontFamily:'monospace'}}>{a.ticker}</div><div style={{fontSize:12,color:C.muted}}>{a.direction==='above'?'Au-dessus de':'En-dessous de'} {a.value}{a.type==='price'?'$':a.type==='percent'?'%':' RSI'}</div></div>
+                <button onClick={function(){setAlerts(function(p){return p.filter(function(x){return x.id!==a.id})})}} style={{background:'none',border:'none',color:C.red,fontSize:18,cursor:'pointer'}}>X</button>
+              </div>
             })}
           </div>
         )}
 
         {tab === 'backtest' && (
           <div>
-            <div style={cardStyle}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 12 }}>Configuration</div>
-              <input value={btTicker} onChange={function(e) { setBtTicker(e.target.value.toUpperCase()) }} placeholder="Ticker" style={inputStyle} />
-              <select value={btStrategy} onChange={function(e) { setBtStrategy(e.target.value) }} style={selectStyle}>
+            <div style={CS}>
+              <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:12}}>Configuration</div>
+              <input value={btTicker} onChange={function(e){setBtTicker(e.target.value.toUpperCase())}} placeholder="Ticker" style={IS} />
+              <select value={btStrategy} onChange={function(e){setBtStrategy(e.target.value)}} style={SS}>
                 <option value="RSI + SMA">RSI + SMA Crossover</option>
                 <option value="Bollinger Bands">Bollinger Bands</option>
                 <option value="RSI seul (30/70)">RSI seul (30/70)</option>
                 <option value="SMA 20/50 Crossover">SMA 20/50 Crossover</option>
               </select>
-              <button style={btnPrimary} onClick={runBacktest} disabled={btLoading}>
-                {btLoading ? 'Simulation...' : 'Lancer le backtest'}
-              </button>
+              <button style={BP} onClick={runBacktest} disabled={btLoading}>{btLoading?'Simulation...':'Lancer le backtest'}</button>
             </div>
             {btLoading && <Loading />}
-            {btResult && !btLoading && (
-              btResult.error
-                ? <div style={{ color: C.red, padding: 16, fontSize: 13 }}>{btResult.error}</div>
-                : <div style={cardStyle}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 12 }}>{btResult.ticker} - {btResult.strategy}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                      <MCard label="Rendement total" value={btResult.total_return} color={btResult.total_return && btResult.total_return.startsWith('-') ? C.red : C.green} />
-                      <MCard label="Win rate" value={btResult.win_rate} color={C.blue} />
-                      <MCard label="Max Drawdown" value={btResult.max_drawdown} color={C.red} />
-                      <MCard label="vs Buy and Hold" value={btResult.vs_buy_hold} color={C.amber} />
-                    </div>
-                    <MRow label="Nombre de trades" value={btResult.nb_trades} />
-                    <MRow label="Ratio de Sharpe" value={btResult.sharpe_ratio} />
-                    <div style={{ color: C.muted, fontSize: 13, margin: '10px 0' }}>{btResult.summary}</div>
-                    <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Historique</div>
-                    {(btResult.trades || []).map(function(t, i) {
-                      return (
-                        <div key={i} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid ' + C.border, fontSize: 12 }}>
-                          <span style={{ padding: '2px 8px', borderRadius: 12, fontWeight: 700, fontSize: 11, background: t.action === 'ACHAT' ? '#052e16' : '#2d0505', color: t.action === 'ACHAT' ? C.green : C.red }}>{t.action}</span>
-                          <span style={{ color: C.muted, fontFamily: 'monospace' }}>{t.date}</span>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>${t.price}</span>
-                          {t.return_pct != null && <span style={{ color: Number(t.return_pct) >= 0 ? C.green : C.red, fontFamily: 'monospace' }}>{Number(t.return_pct) >= 0 ? '+' : ''}{t.return_pct}%</span>}
-                          <span style={{ color: C.muted, fontSize: 11 }}>{t.reason}</span>
-                        </div>
-                      )
-                    })}
+            {btResult && !btLoading && (btResult.error ? <div style={{color:C.red,padding:16,fontSize:13}}>{btResult.error}</div> :
+              <div style={CS}>
+                <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:12}}>{btResult.ticker} - {btResult.strategy}</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+                  <MCard label="Rendement total" value={btResult.total_return} color={btResult.total_return&&btResult.total_return.startsWith('-')?C.red:C.green}/>
+                  <MCard label="Win rate" value={btResult.win_rate} color={C.blue}/>
+                  <MCard label="Max Drawdown" value={btResult.max_drawdown} color={C.red}/>
+                  <MCard label="vs Buy and Hold" value={btResult.vs_buy_hold} color={C.amber}/>
+                </div>
+                <MRow label="Trades" value={btResult.nb_trades}/><MRow label="Sharpe" value={btResult.sharpe_ratio}/>
+                <div style={{color:C.muted,fontSize:13,margin:'10px 0'}}>{btResult.summary}</div>
+                {(btResult.trades||[]).map(function(t,i){
+                  return <div key={i} style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',padding:'6px 0',borderBottom:'1px solid '+C.border,fontSize:12}}>
+                    <span style={{padding:'2px 8px',borderRadius:12,fontWeight:700,fontSize:11,background:t.action==='ACHAT'?'#052e16':'#2d0505',color:t.action==='ACHAT'?C.green:C.red}}>{t.action}</span>
+                    <span style={{color:C.muted,fontFamily:'monospace'}}>{t.date}</span>
+                    <span style={{fontFamily:'monospace',fontWeight:600}}>${t.price}</span>
+                    {t.return_pct!=null&&<span style={{color:Number(t.return_pct)>=0?C.green:C.red,fontFamily:'monospace'}}>{Number(t.return_pct)>=0?'+':''}{t.return_pct}%</span>}
+                    <span style={{color:C.muted,fontSize:11}}>{t.reason}</span>
                   </div>
+                })}
+              </div>
             )}
           </div>
         )}
@@ -545,3 +646,4 @@ export default function App() {
     </div>
   )
 }
+
