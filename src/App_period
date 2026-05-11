@@ -12,8 +12,9 @@ const SIG = {
   ATTENDRE: { color: '#d97706', bg: '#fef3c7', border: '#fcd34d' }
 }
 
-async function fetchStockData(ticker) {
-  const res = await fetch('/api/stock?ticker=' + ticker)
+async function fetchStockData(ticker, period) {
+  const p = period || '1j'
+  const res = await fetch('/api/stock?ticker=' + ticker + '&period=' + p)
   if (!res.ok) throw new Error('Erreur reseau pour ' + ticker)
   return res.json()
 }
@@ -39,6 +40,13 @@ function parseAllData(data, ticker) {
     var currentPrice = (pp.regularMarketPrice && pp.regularMarketPrice.raw) || (yq && yq.meta && yq.meta.regularMarketPrice) || 0
     var prevClose = (pp.regularMarketPreviousClose && pp.regularMarketPreviousClose.raw) || (yq && yq.meta && yq.meta.chartPreviousClose) || 0
     var changePct = prevClose ? ((currentPrice - prevClose) / prevClose * 100) : 0
+    var qCloses = yq && yq.indicators && yq.indicators.quote && yq.indicators.quote[0] && yq.indicators.quote[0].close
+    var qClosesArr = (qCloses || []).filter(function(x) { return x != null })
+    if (qClosesArr.length >= 2) {
+      var firstClose = qClosesArr[0]
+      var lastClose = qClosesArr[qClosesArr.length - 1]
+      if (firstClose) changePct = ((lastClose - firstClose) / firstClose * 100)
+    }
     var volume = (pp.regularMarketVolume && pp.regularMarketVolume.raw) || 0
     var avgVolume = (pp.averageDailyVolume10Day && pp.averageDailyVolume10Day.raw) || 0
 
@@ -493,6 +501,7 @@ export default function App() {
   var [input, setInput] = useState('')
   var [data, setData] = useState({})
   var [running, setRunning] = useState(false)
+  var [period, setPeriod] = useState('1j')
   var [alerts, setAlerts] = useState([
     { id: 1, ticker: 'AAPL', type: 'price', value: '200', direction: 'above' },
     { id: 2, ticker: 'TSLA', type: 'percent', value: '5', direction: 'below' }
@@ -506,7 +515,7 @@ export default function App() {
   var analyze = useCallback(async function(ticker) {
     setData(function(p) { var n = Object.assign({}, p); n[ticker] = { loading: true }; return n })
     try {
-      var raw = parseAllData(await fetchStockData(ticker), ticker)
+      var raw = parseAllData(await fetchStockData(ticker, period), ticker)
       var ai = await analyzeWithGemini(raw)
       var date = new Date().toLocaleString('fr-BE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
       setData(function(p) { var n = Object.assign({}, p); n[ticker] = { raw: raw, ai: ai, date: date }; return n })
@@ -578,7 +587,13 @@ export default function App() {
                 return <span key={t} style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', background:C.surface, border:'1px solid '+C.border, borderRadius:20, fontSize:12, fontWeight:600, color:C.text, fontFamily:'monospace' }}>{t}<span onClick={function(){setTickers(function(p){return p.filter(function(x){return x!==t})});setData(function(p){var n=Object.assign({},p);delete n[t];return n})}} style={{cursor:'pointer',color:C.muted}}>x</span></span>
               })}
             </div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              {['1j','1s','1m','3m','1an'].map(function(p) {
+                return <button key={p} onClick={function(){setPeriod(p)}} style={{ flex:1, padding:'8px 0', fontSize:12, fontWeight:600, cursor:'pointer', borderRadius:8, border:'1px solid '+(period===p?C.blue:C.border), background:period===p?C.blue:'transparent', color:period===p?'#fff':C.muted }}>{p.toUpperCase()}</button>
+              })}
+            </div>
             <button style={BP} onClick={runAll} disabled={running||!tickers.length}>{running?'Analyse en cours...':'Tout analyser'}</button>
+            <button onClick={function(){window.open('/api/test-keys','_blank')}} style={{ width:'100%', marginTop:6, padding:'8px', fontSize:12, cursor:'pointer', borderRadius:8, border:'1px solid '+C.border, background:'transparent', color:C.muted }}>🔑 Tester mes clés API</button>
             <div style={{ marginTop: 12 }}>
               {tickers.length===0 ? <div style={{textAlign:'center',color:C.muted,padding:'40px 0',fontSize:14}}>Ajoutez des actions pour commencer</div> : tickers.map(function(t){return <StockCard key={t} ticker={t} data={data[t]} onAnalyze={function(){analyze(t)}} />})}
             </div>
