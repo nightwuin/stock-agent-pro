@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   const [
     yahooQuote, yahooSummary, yahooHist,
     avRsi, avMacd, avBbands,
-    fmpRatios, fmpIncome, fmpInsider, fmpEarnings,
+    fmpRatios, fmpIncome, fmpInsider,
     newsData,
     fredRate, fredCpi, fredVix
   ] = await Promise.all([
@@ -28,7 +28,6 @@ export default async function handler(req, res) {
     FMP_KEY ? safe(() => fetch(`https://financialmodelingprep.com/api/v3/ratios-ttm/${ticker}?apikey=${FMP_KEY}`).then(r => r.json())) : null,
     FMP_KEY ? safe(() => fetch(`https://financialmodelingprep.com/api/v3/income-statement/${ticker}?limit=4&apikey=${FMP_KEY}`).then(r => r.json())) : null,
     FMP_KEY ? safe(() => fetch(`https://financialmodelingprep.com/api/v4/insider-trading?symbol=${ticker}&limit=8&apikey=${FMP_KEY}`).then(r => r.json())) : null,
-    FMP_KEY ? safe(() => fetch(`https://financialmodelingprep.com/api/v3/historical/earning_calendar/${ticker}?apikey=${FMP_KEY}`).then(r => r.json())) : null,
     NEWS_KEY ? safe(() => fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(ticker)}&sortBy=publishedAt&pageSize=10&language=en&apiKey=${NEWS_KEY}`).then(r => r.json())) : null,
     FRED_KEY ? safe(() => fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=FEDFUNDS&limit=1&sort_order=desc&api_key=${FRED_KEY}&file_type=json`).then(r => r.json())) : null,
     FRED_KEY ? safe(() => fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=CPIAUCSL&limit=2&sort_order=desc&api_key=${FRED_KEY}&file_type=json`).then(r => r.json())) : null,
@@ -38,7 +37,7 @@ export default async function handler(req, res) {
   res.json({
     yahoo: { quote: yahooQuote, summary: yahooSummary, hist: yahooHist },
     av: { rsi: avRsi, macd: avMacd, bbands: avBbands },
-    fmp: { ratios: fmpRatios, income: fmpIncome, insider: fmpInsider, earnings: fmpEarnings },
+    fmp: { ratios: fmpRatios, income: fmpIncome, insider: fmpInsider },
     news: newsData,
     macro: { fedRate: fredRate, cpi: fredCpi, vix: fredVix }
   })
