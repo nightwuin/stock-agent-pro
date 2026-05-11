@@ -1,15 +1,15 @@
 import { useState, useCallback } from 'react'
 
 const C = {
-  bg: '#0a0a0a', card: '#111', border: '#1e1e1e', text: '#f0f0f0',
-  muted: '#666', green: '#22c55e', red: '#ef4444', amber: '#f59e0b',
-  blue: '#3b82f6', surface: '#161616', purple: '#a855f7'
+  bg: '#f8f9fa', card: '#ffffff', border: '#e2e8f0', text: '#1a202c',
+  muted: '#718096', green: '#16a34a', red: '#dc2626', amber: '#d97706',
+  blue: '#2563eb', surface: '#f1f5f9', purple: '#7c3aed'
 }
 
 const SIG = {
-  ACHETER:  { color: '#22c55e', bg: '#052e16', border: '#166534' },
-  VENDRE:   { color: '#ef4444', bg: '#2d0505', border: '#7f1d1d' },
-  ATTENDRE: { color: '#f59e0b', bg: '#2d1d05', border: '#92400e' }
+  ACHETER:  { color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+  VENDRE:   { color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  ATTENDRE: { color: '#d97706', bg: '#fef3c7', border: '#fcd34d' }
 }
 
 async function fetchStockData(ticker) {
@@ -23,10 +23,10 @@ function parseAllData(data, ticker) {
     var yq = data.yahoo && data.yahoo.quote && data.yahoo.quote.chart && data.yahoo.quote.chart.result && data.yahoo.quote.chart.result[0]
     var ys = data.yahoo && data.yahoo.summary && data.yahoo.summary.quoteSummary && data.yahoo.summary.quoteSummary.result && data.yahoo.summary.quoteSummary.result[0]
     var yh = data.yahoo && data.yahoo.hist && data.yahoo.hist.chart && data.yahoo.hist.chart.result && data.yahoo.hist.chart.result[0]
-    var news = Array.isArray(data.news && data.news.articles) ? data.news.articles : []
+    var news = Array.isArray(data.news && data.news.articles ? data.news.articles : null) ? data.news.articles : []
     var fmpR = data.fmp && data.fmp.ratios && data.fmp.ratios[0]
-    var fmpI = Array.isArray(data.fmp && data.fmp.income) ? data.fmp.income : []
-    var fmpIns = Array.isArray(data.fmp && data.fmp.insider) ? data.fmp.insider : []
+    var fmpI = Array.isArray(data.fmp && data.fmp.income ? data.fmp.income : null) ? data.fmp.income : []
+    var fmpIns = Array.isArray(data.fmp && data.fmp.insider ? data.fmp.insider : null) ? data.fmp.insider : []
     var fmpE = (data.fmp && data.fmp.earnings) || []
     var macro = data.macro || {}
 
@@ -347,7 +347,7 @@ function StockCard(props) {
       </div>
 
       {data && data.loading && <Loading />}
-      {data && data.error && <div style={{ color: C.red, fontSize: 12, padding: 8, background: '#1a0505', borderRadius: 6 }}>{data.error}</div>}
+      {data && data.error && <div style={{ color: C.red, fontSize: 12, padding: 8, background: '#fee2e2', borderRadius: 6 }}>{data.error}</div>}
 
       {raw && ai && !(data && data.loading) && (
         <div>
@@ -435,7 +435,7 @@ function StockCard(props) {
             )}
 
             {raw.nextEarnings && (
-              <div style={{ marginTop: 8, padding: '6px 10px', background: '#1a1a2e', borderRadius: 6, fontSize: 12, color: C.purple }}>
+              <div style={{ marginTop: 8, padding: '6px 10px', background: '#ede9fe', borderRadius: 6, fontSize: 12, color: '#7c3aed' }}>
                 Prochains resultats: {raw.nextEarnings}
               </div>
             )}
@@ -553,7 +553,7 @@ export default function App() {
 
   return (
     <div style={{ background: C.bg, minHeight: '100vh', paddingBottom: 80, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <style>{'@keyframes p{0%,100%{opacity:.2}50%{opacity:1}} input::placeholder{color:#444}'}</style>
+      <style>{'@keyframes p{0%,100%{opacity:.2}50%{opacity:1}} input::placeholder{color:#a0aec0} body{background:#f8f9fa}'}</style>
 
       <div style={{ background: C.card, borderBottom: '1px solid ' + C.border, padding: '14px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: C.text }}>Stock Agent Pro</div>
@@ -646,4 +646,3 @@ export default function App() {
     </div>
   )
 }
-
