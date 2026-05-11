@@ -23,10 +23,10 @@ function parseAllData(data, ticker) {
     var yq = data.yahoo && data.yahoo.quote && data.yahoo.quote.chart && data.yahoo.quote.chart.result && data.yahoo.quote.chart.result[0]
     var ys = data.yahoo && data.yahoo.summary && data.yahoo.summary.quoteSummary && data.yahoo.summary.quoteSummary.result && data.yahoo.summary.quoteSummary.result[0]
     var yh = data.yahoo && data.yahoo.hist && data.yahoo.hist.chart && data.yahoo.hist.chart.result && data.yahoo.hist.chart.result[0]
-    var news = (data.news && data.news.articles) || []
+    var news = Array.isArray(data.news && data.news.articles) ? data.news.articles : []
     var fmpR = data.fmp && data.fmp.ratios && data.fmp.ratios[0]
-    var fmpI = (data.fmp && data.fmp.income) || []
-    var fmpIns = (data.fmp && data.fmp.insider) || []
+    var fmpI = Array.isArray(data.fmp && data.fmp.income) ? data.fmp.income : []
+    var fmpIns = Array.isArray(data.fmp && data.fmp.insider) ? data.fmp.insider : []
     var fmpE = (data.fmp && data.fmp.earnings) || []
     var macro = data.macro || {}
 
