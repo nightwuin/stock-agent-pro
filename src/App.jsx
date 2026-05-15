@@ -27,10 +27,9 @@ function parseAllData(data, ticker) {
     var news = Array.isArray(data.news && data.news.articles ? data.news.articles : null) ? data.news.articles : []
     var fmpQ = data.fmp && data.fmp.quote
     var fmpP = data.fmp && data.fmp.profile
-    var fmpR = data.fmp && data.fmp.ratios && data.fmp.ratios[0]
-    var fmpI = Array.isArray(data.fmp && data.fmp.income ? data.fmp.income : null) ? data.fmp.income : []
-    var fmpIns = Array.isArray(data.fmp && data.fmp.insider ? data.fmp.insider : null) ? data.fmp.insider : []
-    var fmpE = (data.fmp && data.fmp.earnings) || []
+    var fmpI = Array.isArray(data.fmp && data.fmp.income) ? data.fmp.income : []
+    var fmpIns = []
+    var fmpE = []
     var macro = data.macro || {}
 
     var price = ys || {}
@@ -39,11 +38,7 @@ function parseAllData(data, ticker) {
     var sd = (price.summaryDetail) || {}
     var pp = (price.price) || {}
 
-var currentPrice =
-  (fmpQ && fmpQ.price) ||
-  (pp.regularMarketPrice && pp.regularMarketPrice.raw) ||
-  (yq && yq.meta && yq.meta.regularMarketPrice) ||
-  0
+    var currentPrice = (pp.regularMarketPrice && pp.regularMarketPrice.raw) || (yq && yq.meta && yq.meta.regularMarketPrice) || 0
     var prevClose = (pp.regularMarketPreviousClose && pp.regularMarketPreviousClose.raw) || (yq && yq.meta && yq.meta.chartPreviousClose) || 0
     var changePct = prevClose ? ((currentPrice - prevClose) / prevClose * 100) : 0
     var qCloses = yq && yq.indicators && yq.indicators.quote && yq.indicators.quote[0] && yq.indicators.quote[0].close
@@ -167,9 +162,7 @@ var currentPrice =
 
     var sources = ['Yahoo Finance']
     if (rsiOfficial) sources.push('Alpha Vantage')
-    if (fmpQ || fmpP || fmpR || fmpI.length > 0 || fmpIns.length > 0 || fmpE.length > 0) {
-  sources.push('FMP')
-}
+    if (fmpQ || fmpP) sources.push('FMP')
     if (newsHeadlines.length > 0 && data.news) sources.push('NewsAPI')
     if (fedRate) sources.push('FRED')
 
@@ -189,25 +182,19 @@ var currentPrice =
       sma50: sma50,
       support: support,
       resistance: resistance,
-   per: fmpR && fmpR.peRatioTTM
-     ? fmpR.peRatioTTM.toFixed(1)
-     : fmpQ && fmpQ.pe
-      ? Number(fmpQ.pe).toFixed(1)
-      : ((sd.trailingPE && sd.trailingPE.raw) || (ks.trailingPE && ks.trailingPE.raw)),
-
-   eps: fmpR && fmpR.epsTTM
-    ? fmpR.epsTTM.toFixed(2)
-    : fmpQ && fmpQ.eps
-      ? Number(fmpQ.eps).toFixed(2)
-      : (ks.trailingEps && ks.trailingEps.raw),
-      roe: fmpR && fmpR.returnOnEquityTTM ? (fmpR.returnOnEquityTTM * 100).toFixed(1) + '%' : null,
-      roa: fmpR && fmpR.returnOnAssetsTTM ? (fmpR.returnOnAssetsTTM * 100).toFixed(1) + '%' : null,
-      debtEquity: fmpR && fmpR.debtEquityRatioTTM ? fmpR.debtEquityRatioTTM.toFixed(2) : (fd.debtToEquity && fd.debtToEquity.raw),
+      per: (fmpQ && fmpQ.pe ? fmpQ.pe.toFixed(1) : null) || (sd.trailingPE && sd.trailingPE.raw) || (ks.trailingPE && ks.trailingPE.raw),
+      eps: (fmpQ && fmpQ.eps ? fmpQ.eps.toFixed(2) : null) || (ks.trailingEps && ks.trailingEps.raw),
+      roe: null,
+      roa: null,
+      beta: fmpP && fmpP.beta ? fmpP.beta.toFixed(2) : null,
+      sector: fmpP && fmpP.sector,
+      industry: fmpP && fmpP.industry,
+      debtEquity: fd.debtToEquity && fd.debtToEquity.raw,
       freeCashflow: fd.freeCashflow && fd.freeCashflow.fmt,
       revenue: fd.totalRevenue && fd.totalRevenue.fmt,
       revenueGrowth: fd.revenueGrowth && fd.revenueGrowth.fmt,
       grossMargins: fd.grossMargins && fd.grossMargins.fmt,
-      currentRatio: fmpR && fmpR.currentRatioTTM ? fmpR.currentRatioTTM.toFixed(2) : (fd.currentRatio && fd.currentRatio.raw),
+      currentRatio: fd.currentRatio && fd.currentRatio.raw,
       quarterlyData: quarterlyData,
       insiderTrades: insiderTrades,
       nextEarnings: nextEarnings,
@@ -429,6 +416,9 @@ function StockCard(props) {
               <MCard label="ROE" value={raw.roe || null} color={C.green} />
               <MCard label="ROA" value={raw.roa || null} color={C.blue} />
             </div>
+            {raw.sector && <MRow label="Secteur" value={raw.sector} />}
+            {raw.industry && <MRow label="Industrie" value={raw.industry} />}
+            {raw.beta && <MRow label="Beta" value={raw.beta} />}
             <MRow label="Revenue" value={raw.revenue} />
             <MRow label="Croissance" value={raw.revenueGrowth} color={raw.revenueGrowth && raw.revenueGrowth.startsWith('-') ? C.red : C.green} />
             <MRow label="Marge brute" value={raw.grossMargins} />
@@ -486,7 +476,7 @@ function StockCard(props) {
                 })}
               </div>
             ) : (
-              <div style={{ color: C.muted, fontSize: 12, padding: '8px 0' }}>Ajoutez votre cle FMP pour voir les insider trades</div>
+              <div style={{ color: C.muted, fontSize: 12, padding: '8px 0' }}>Insider trading non disponible sur le plan gratuit FMP</div>
             )}
           </Section>
 
@@ -529,17 +519,17 @@ export default function App() {
   var [btResult, setBtResult] = useState(null)
   var [btLoading, setBtLoading] = useState(false)
 
-var analyze = useCallback(async function(ticker) {
-  setData(function(p) { var n = Object.assign({}, p); n[ticker] = { loading: true }; return n })
-  try {
-    var raw = parseAllData(await fetchStockData(ticker, period), ticker)
-    var ai = await analyzeWithGemini(raw)
-    var date = new Date().toLocaleString('fr-BE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-    setData(function(p) { var n = Object.assign({}, p); n[ticker] = { raw: raw, ai: ai, date: date }; return n })
-  } catch (e) {
-    setData(function(p) { var n = Object.assign({}, p); n[ticker] = { error: e.message }; return n })
-  }
-}, [period])
+  var analyze = useCallback(async function(ticker) {
+    setData(function(p) { var n = Object.assign({}, p); n[ticker] = { loading: true }; return n })
+    try {
+      var raw = parseAllData(await fetchStockData(ticker, period), ticker)
+      var ai = await analyzeWithGemini(raw)
+      var date = new Date().toLocaleString('fr-BE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      setData(function(p) { var n = Object.assign({}, p); n[ticker] = { raw: raw, ai: ai, date: date }; return n })
+    } catch (e) {
+      setData(function(p) { var n = Object.assign({}, p); n[ticker] = { error: e.message }; return n })
+    }
+  }, [])
 
   var runAll = async function() {
     setRunning(true)
