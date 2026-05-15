@@ -33,10 +33,10 @@ function parseAllData(data, ticker) {
     var macro = data.macro || {}
 
     var price = ys || {}
-    var fd = (price.financialData) || {}
-    var ks = (price.defaultKeyStatistics) || {}
-    var sd = (price.summaryDetail) || {}
-    var pp = (price.price) || {}
+    var fd = (ys && ys.financialData) || {}
+    var ks = (ys && ys.defaultKeyStatistics) || {}
+    var sd = (ys && ys.summaryDetail) || {}
+    var pp = (ys && ys.price) || {}
 
     var currentPrice = (pp.regularMarketPrice && pp.regularMarketPrice.raw) || (yq && yq.meta && yq.meta.regularMarketPrice) || 0
     var prevClose = (pp.regularMarketPreviousClose && pp.regularMarketPreviousClose.raw) || (yq && yq.meta && yq.meta.chartPreviousClose) || 0
@@ -182,8 +182,8 @@ function parseAllData(data, ticker) {
       sma50: sma50,
       support: support,
       resistance: resistance,
-      per: (fmpQ && fmpQ.pe ? fmpQ.pe.toFixed(1) : null) || (sd.trailingPE && sd.trailingPE.raw) || (ks.trailingPE && ks.trailingPE.raw),
-      eps: (fmpQ && fmpQ.eps ? fmpQ.eps.toFixed(2) : null) || (ks.trailingEps && ks.trailingEps.raw),
+      per: (fmpQ && fmpQ.pe ? Number(fmpQ.pe).toFixed(1) : null) || (sd.trailingPE && sd.trailingPE.raw ? Number(sd.trailingPE.raw).toFixed(1) : null) || (ks.trailingPE && ks.trailingPE.raw ? Number(ks.trailingPE.raw).toFixed(1) : null),
+      eps: (fmpQ && fmpQ.eps ? Number(fmpQ.eps).toFixed(2) : null) || (ks.trailingEps && ks.trailingEps.raw ? Number(ks.trailingEps.raw).toFixed(2) : null),
       roe: null,
       roa: null,
       beta: fmpP && fmpP.beta ? fmpP.beta.toFixed(2) : null,
