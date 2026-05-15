@@ -39,7 +39,11 @@ function parseAllData(data, ticker) {
     var sd = (price.summaryDetail) || {}
     var pp = (price.price) || {}
 
-    var currentPrice = (pp.regularMarketPrice && pp.regularMarketPrice.raw) || (yq && yq.meta && yq.meta.regularMarketPrice) || 0
+var currentPrice =
+  (fmpQ && fmpQ.price) ||
+  (pp.regularMarketPrice && pp.regularMarketPrice.raw) ||
+  (yq && yq.meta && yq.meta.regularMarketPrice) ||
+  0
     var prevClose = (pp.regularMarketPreviousClose && pp.regularMarketPreviousClose.raw) || (yq && yq.meta && yq.meta.chartPreviousClose) || 0
     var changePct = prevClose ? ((currentPrice - prevClose) / prevClose * 100) : 0
     var qCloses = yq && yq.indicators && yq.indicators.quote && yq.indicators.quote[0] && yq.indicators.quote[0].close
@@ -185,8 +189,17 @@ function parseAllData(data, ticker) {
       sma50: sma50,
       support: support,
       resistance: resistance,
-      per: fmpR && fmpR.peRatioTTM ? fmpR.peRatioTTM.toFixed(1) : ((sd.trailingPE && sd.trailingPE.raw) || (ks.trailingPE && ks.trailingPE.raw)),
-      eps: fmpR && fmpR.epsTTM ? fmpR.epsTTM.toFixed(2) : (ks.trailingEps && ks.trailingEps.raw),
+   per: fmpR && fmpR.peRatioTTM
+     ? fmpR.peRatioTTM.toFixed(1)
+     : fmpQ && fmpQ.pe
+      ? Number(fmpQ.pe).toFixed(1)
+      : ((sd.trailingPE && sd.trailingPE.raw) || (ks.trailingPE && ks.trailingPE.raw)),
+
+   eps: fmpR && fmpR.epsTTM
+    ? fmpR.epsTTM.toFixed(2)
+    : fmpQ && fmpQ.eps
+      ? Number(fmpQ.eps).toFixed(2)
+      : (ks.trailingEps && ks.trailingEps.raw),
       roe: fmpR && fmpR.returnOnEquityTTM ? (fmpR.returnOnEquityTTM * 100).toFixed(1) + '%' : null,
       roa: fmpR && fmpR.returnOnAssetsTTM ? (fmpR.returnOnAssetsTTM * 100).toFixed(1) + '%' : null,
       debtEquity: fmpR && fmpR.debtEquityRatioTTM ? fmpR.debtEquityRatioTTM.toFixed(2) : (fd.debtToEquity && fd.debtToEquity.raw),
@@ -516,17 +529,17 @@ export default function App() {
   var [btResult, setBtResult] = useState(null)
   var [btLoading, setBtLoading] = useState(false)
 
-  var analyze = useCallback(async function(ticker) {
-    setData(function(p) { var n = Object.assign({}, p); n[ticker] = { loading: true }; return n })
-    try {
-      var raw = parseAllData(await fetchStockData(ticker, period), ticker)
-      var ai = await analyzeWithGemini(raw)
-      var date = new Date().toLocaleString('fr-BE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-      setData(function(p) { var n = Object.assign({}, p); n[ticker] = { raw: raw, ai: ai, date: date }; return n })
-    } catch (e) {
-      setData(function(p) { var n = Object.assign({}, p); n[ticker] = { error: e.message }; return n })
-    }
-  }, [])
+var analyze = useCallback(async function(ticker) {
+  setData(function(p) { var n = Object.assign({}, p); n[ticker] = { loading: true }; return n })
+  try {
+    var raw = parseAllData(await fetchStockData(ticker, period), ticker)
+    var ai = await analyzeWithGemini(raw)
+    var date = new Date().toLocaleString('fr-BE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    setData(function(p) { var n = Object.assign({}, p); n[ticker] = { raw: raw, ai: ai, date: date }; return n })
+  } catch (e) {
+    setData(function(p) { var n = Object.assign({}, p); n[ticker] = { error: e.message }; return n })
+  }
+}, [period])
 
   var runAll = async function() {
     setRunning(true)
