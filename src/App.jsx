@@ -419,7 +419,9 @@ function StockCard({ ticker, data, onAnalyze }) {
 // ─── MAIN APP ──────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState('dashboard')
-  const [tickers, setTickers] = useState(['AAPL','TSLA','NVDA'])
+const [tickers, setTickers] = useState(() => {
+  try { const s = localStorage.getItem('stock_tickers'); return s ? JSON.parse(s) : ['AAPL','TSLA','NVDA'] } catch(e) { return ['AAPL','TSLA','NVDA'] }
+})
   const [input, setInput] = useState('')
   const [analyses, setAnalyses] = useState({})
   const [running, setRunning] = useState(false)
@@ -458,7 +460,15 @@ export default function App() {
   }, [period])
 
   const runAll = async () => { setRunning(true); for(const t of tickers) await analyze(t); setRunning(false) }
-  const addTicker = () => { const v=input.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g,''); if(v&&!tickers.includes(v)) setTickers(p=>[...p,v]); setInput('') }
+const addTicker = () => {
+  const v=input.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g,'')
+  if(v&&!tickers.includes(v)) {
+    const newList=[...tickers,v]
+    setTickers(newList)
+    try { localStorage.setItem('stock_tickers', JSON.stringify(newList)) } catch(e){}
+  }
+  setInput('')
+}
   const quickAnalyze = s => { if(!tickers.includes(s)) setTickers(p=>[...p,s]); setTab('dashboard'); setTimeout(()=>analyze(s),200) }
   const addAlert = () => { if(!alertForm.ticker||!alertForm.value) return; setAlerts(p=>[...p,{...alertForm,id:Date.now(),ticker:alertForm.ticker.toUpperCase()}]); setAlertForm({ticker:'',type:'price',value:'',direction:'above'}) }
   const addJournal = () => {
@@ -531,7 +541,12 @@ export default function App() {
           {tickers.map(t=><span key={t} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:C.surface,border:'1px solid '+C.border,borderRadius:20,fontSize:12,fontWeight:600,fontFamily:'monospace'}}>
             {t}
             {analyses[t]&&analyses[t].raw&&<span style={{fontSize:10,color:Number(analyses[t].raw.changePct)>=0?C.green:C.red}}>{Number(analyses[t].raw.changePct)>=0?'▲':'▼'}</span>}
-            <span onClick={()=>{setTickers(p=>p.filter(x=>x!==t));setAnalyses(p=>{const n={...p};delete n[t];return n})}} style={{cursor:'pointer',color:C.muted}}>×</span>
+<span onClick={()=>{
+  const newList=tickers.filter(x=>x!==t)
+  setTickers(newList)
+  try{localStorage.setItem('stock_tickers',JSON.stringify(newList))}catch(e){}
+  setAnalyses(p=>{const n={...p};delete n[t];return n})
+}} style={{cursor:'pointer',color:C.muted}}>×</span>
           </span>)}
         </div>
         <button style={BP} onClick={runAll} disabled={running||!tickers.length}>{running?'⏳ Analyse en cours...':'▶ Tout analyser'}</button>
