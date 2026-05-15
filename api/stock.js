@@ -9,6 +9,7 @@ export default async function handler(req, res) {
   const FMP_KEY = process.env.FMP_KEY
   const NEWS_KEY = process.env.NEWS_API_KEY
   const FRED_KEY = process.env.FRED_KEY
+  const GEMINI_KEY = process.env.GEMINI_API_KEY
   const YH = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
  
   const safe = async (fn) => {
