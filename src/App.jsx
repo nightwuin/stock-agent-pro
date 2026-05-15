@@ -419,9 +419,7 @@ function StockCard({ ticker, data, onAnalyze }) {
 // ─── MAIN APP ──────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState('dashboard')
-const [tickers, setTickers] = useState(() => {
-  try { const s = localStorage.getItem('stock_tickers'); return s ? JSON.parse(s) : ['AAPL','TSLA','NVDA'] } catch(e) { return ['AAPL','TSLA','NVDA'] }
-})
+  const [tickers, setTickers] = useState(['AAPL','TSLA','NVDA'])
   const [input, setInput] = useState('')
   const [analyses, setAnalyses] = useState({})
   const [running, setRunning] = useState(false)
@@ -435,7 +433,11 @@ const [tickers, setTickers] = useState(() => {
   const [alertForm, setAlertForm] = useState({ticker:'',type:'price',value:'',direction:'above'})
   const [journal, setJournal] = useState([])
   const [jForm, setJForm] = useState({ticker:'',action:'ACHAT',price:'',quantity:'',date:new Date().toISOString().split('T')[0],note:''})
-  const [btTicker, setBtTicker] = useState('AAPL')
+  const [suggestions, setSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const btTicker_init = 'AAPL'
+  const [btTicker, setBtTicker] = useState(btTicker_init)
   const [btStrategy, setBtStrategy] = useState('RSI + SMA')
   const [btResult, setBtResult] = useState(null)
   const [btLoading, setBtLoading] = useState(false)
@@ -460,16 +462,37 @@ const [tickers, setTickers] = useState(() => {
   }, [period])
 
   const runAll = async () => { setRunning(true); for(const t of tickers) await analyze(t); setRunning(false) }
-const addTicker = () => {
-  const v=input.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g,'')
-  if(v&&!tickers.includes(v)) {
-    const newList=[...tickers,v]
-    setTickers(newList)
-    try { localStorage.setItem('stock_tickers', JSON.stringify(newList)) } catch(e){}
-  }
-  setInput('')
-}
+  const addTicker = () => { const v=input.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g,''); if(v&&!tickers.includes(v)) setTickers(p=>[...p,v]); setInput('') }
   const quickAnalyze = s => { if(!tickers.includes(s)) setTickers(p=>[...p,s]); setTab('dashboard'); setTimeout(()=>analyze(s),200) }
+
+  const searchTimeout = useRef(null)
+  const searchStocks = (q) => {
+    setInput(q)
+    if (!q || q.length < 1) { setSuggestions([]); setShowSuggestions(false); return }
+    clearTimeout(searchTimeout.current)
+    setSearchLoading(true)
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const r = await fetch('/api/search?q=' + encodeURIComponent(q))
+        const d = await r.json()
+        setSuggestions(d)
+        setShowSuggestions(d.length > 0)
+      } catch(e) { setSuggestions([]) }
+      setSearchLoading(false)
+    }, 300)
+  }
+
+  const selectSuggestion = (symbol) => {
+    const v = symbol.toUpperCase()
+    if (v && !tickers.includes(v)) {
+      const newList = [...tickers, v]
+      setTickers(newList)
+      try { localStorage.setItem('stock_tickers', JSON.stringify(newList)) } catch(e){}
+    }
+    setInput('')
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
   const addAlert = () => { if(!alertForm.ticker||!alertForm.value) return; setAlerts(p=>[...p,{...alertForm,id:Date.now(),ticker:alertForm.ticker.toUpperCase()}]); setAlertForm({ticker:'',type:'price',value:'',direction:'above'}) }
   const addJournal = () => {
     if(!jForm.ticker||!jForm.price||!jForm.quantity) return
@@ -494,13 +517,13 @@ const addTicker = () => {
     setBtLoading(false)
   }
 
-  const IS={width:'100%',background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',fontSize:14,color:C.text,marginBottom:8}
-  const SS={width:'100%',background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',fontSize:13,color:C.text,marginBottom:8}
-  const BP={width:'100%',padding:12,background:C.text,color:C.bg,border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer'}
+  const IS={width:'100%',background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',fontSize:16,color:C.text,marginBottom:8,boxSizing:'border-box',WebkitAppearance:'none'}
+  const SS={width:'100%',background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',fontSize:16,color:C.text,marginBottom:8,boxSizing:'border-box',WebkitAppearance:'none'}
+  const BP={width:'100%',padding:'14px 12px',background:C.text,color:C.bg,border:'none',borderRadius:8,fontSize:15,fontWeight:600,cursor:'pointer',WebkitTapHighlightColor:'transparent'}
   const CS={background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,marginBottom:12}
 
   return <div style={{background:C.bg,minHeight:'100vh',paddingBottom:80,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
-    <style>{'@keyframes p{0%,100%{opacity:.2}50%{opacity:1}} input::placeholder{color:#a0aec0}'}</style>
+    <style>{'@keyframes p{0%,100%{opacity:.2}50%{opacity:1}} input,select{font-size:16px!important;} input::placeholder{color:#a0aec0} button{min-height:44px} @media(max-width:480px){.tabs button{padding:10px 8px!important;font-size:11px!important}}'}</style>
 
     {/* HEADER */}
     <div style={{background:C.card,borderBottom:'1px solid '+C.border,padding:'12px 16px',position:'sticky',top:0,zIndex:10}}>
@@ -533,20 +556,45 @@ const addTicker = () => {
         <div style={{display:'flex',gap:6,marginBottom:8}}>
           {['1j','1s','1m','3m','1an'].map(p=><button key={p} onClick={()=>setPeriod(p)} style={{flex:1,padding:'7px 0',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:8,border:'1px solid '+(period===p?C.blue:C.border),background:period===p?C.blueBg:'transparent',color:period===p?C.blue:C.muted}}>{p.toUpperCase()}</button>)}
         </div>
-        <div style={{display:'flex',gap:8,marginBottom:8}}>
-          <input value={input} onChange={e=>setInput(e.target.value.toUpperCase())} placeholder="AAPL, TSLA, BTC-USD..." onKeyDown={e=>e.key==='Enter'&&addTicker()} style={{...IS,flex:1,marginBottom:0}}/>
-          <button onClick={addTicker} style={{padding:'10px 14px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,cursor:'pointer',fontSize:18,flexShrink:0}}>+</button>
+        <div style={{position:'relative',marginBottom:8}}>
+          <div style={{display:'flex',gap:8}}>
+            <input
+              value={input}
+              onChange={e=>searchStocks(e.target.value)}
+              onKeyDown={e=>{
+                if(e.key==='Enter'){addTicker();setShowSuggestions(false)}
+                if(e.key==='Escape'){setShowSuggestions(false)}
+              }}
+              onBlur={()=>setTimeout(()=>setShowSuggestions(false),200)}
+              placeholder="Rechercher une action (Apple, Tesla, BTC...)"
+              style={{...IS,flex:1,marginBottom:0}}
+              autoComplete="off"
+            />
+            <button onClick={()=>{addTicker();setShowSuggestions(false)}} style={{padding:'10px 14px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,cursor:'pointer',fontSize:18,flexShrink:0}}>+</button>
+          </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <div style={{position:'absolute',top:'100%',left:0,right:44,background:C.card,border:'1px solid '+C.border,borderRadius:8,zIndex:100,boxShadow:'0 4px 20px rgba(0,0,0,0.1)',maxHeight:280,overflowY:'auto'}}>
+              {suggestions.map((s,i) => (
+                <div key={i} onMouseDown={()=>selectSuggestion(s.symbol)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',cursor:'pointer',borderBottom:i<suggestions.length-1?'1px solid '+C.border:'none',background:C.card}} onMouseEnter={e=>e.currentTarget.style.background=C.surface} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+                  <div>
+                    <span style={{fontSize:14,fontWeight:700,fontFamily:'monospace',color:C.text}}>{s.symbol}</span>
+                    <span style={{fontSize:12,color:C.muted,marginLeft:8,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'inline-block',verticalAlign:'middle'}}>{s.name}</span>
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                    {s.exchange && <span style={{fontSize:10,color:C.muted,background:C.surface,padding:'2px 6px',borderRadius:6}}>{s.exchange}</span>}
+                    <span style={{fontSize:10,padding:'2px 6px',borderRadius:6,background:s.type==='CRYPTOCURRENCY'?C.amberBg:s.type==='ETF'?C.blueBg:C.greenBg,color:s.type==='CRYPTOCURRENCY'?C.amber:s.type==='ETF'?C.blue:C.green,fontWeight:600}}>{s.type==='EQUITY'?'ACTION':s.type==='ETF'?'ETF':s.type==='CRYPTOCURRENCY'?'CRYPTO':'FOND'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {searchLoading && <div style={{position:'absolute',right:56,top:10,fontSize:12,color:C.muted}}>⏳</div>}
         </div>
         <div style={{marginBottom:10,display:'flex',flexWrap:'wrap',gap:6}}>
           {tickers.map(t=><span key={t} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:C.surface,border:'1px solid '+C.border,borderRadius:20,fontSize:12,fontWeight:600,fontFamily:'monospace'}}>
             {t}
             {analyses[t]&&analyses[t].raw&&<span style={{fontSize:10,color:Number(analyses[t].raw.changePct)>=0?C.green:C.red}}>{Number(analyses[t].raw.changePct)>=0?'▲':'▼'}</span>}
-<span onClick={()=>{
-  const newList=tickers.filter(x=>x!==t)
-  setTickers(newList)
-  try{localStorage.setItem('stock_tickers',JSON.stringify(newList))}catch(e){}
-  setAnalyses(p=>{const n={...p};delete n[t];return n})
-}} style={{cursor:'pointer',color:C.muted}}>×</span>
+            <span onClick={()=>{setTickers(p=>p.filter(x=>x!==t));setAnalyses(p=>{const n={...p};delete n[t];return n})}} style={{cursor:'pointer',color:C.muted}}>×</span>
           </span>)}
         </div>
         <button style={BP} onClick={runAll} disabled={running||!tickers.length}>{running?'⏳ Analyse en cours...':'▶ Tout analyser'}</button>
