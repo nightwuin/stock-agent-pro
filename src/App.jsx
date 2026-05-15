@@ -25,6 +25,8 @@ function parseAllData(data, ticker) {
     var ys = data.yahoo && data.yahoo.summary && data.yahoo.summary.quoteSummary && data.yahoo.summary.quoteSummary.result && data.yahoo.summary.quoteSummary.result[0]
     var yh = data.yahoo && data.yahoo.hist && data.yahoo.hist.chart && data.yahoo.hist.chart.result && data.yahoo.hist.chart.result[0]
     var news = Array.isArray(data.news && data.news.articles ? data.news.articles : null) ? data.news.articles : []
+    var fmpQ = data.fmp && data.fmp.quote
+    var fmpP = data.fmp && data.fmp.profile
     var fmpR = data.fmp && data.fmp.ratios && data.fmp.ratios[0]
     var fmpI = Array.isArray(data.fmp && data.fmp.income ? data.fmp.income : null) ? data.fmp.income : []
     var fmpIns = Array.isArray(data.fmp && data.fmp.insider ? data.fmp.insider : null) ? data.fmp.insider : []
@@ -161,7 +163,9 @@ function parseAllData(data, ticker) {
 
     var sources = ['Yahoo Finance']
     if (rsiOfficial) sources.push('Alpha Vantage')
-    if (fmpR) sources.push('FMP')
+    if (fmpQ || fmpP || fmpR || fmpI.length > 0 || fmpIns.length > 0 || fmpE.length > 0) {
+  sources.push('FMP')
+}
     if (newsHeadlines.length > 0 && data.news) sources.push('NewsAPI')
     if (fedRate) sources.push('FRED')
 
