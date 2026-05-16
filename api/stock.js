@@ -34,7 +34,36 @@ export default async function handler(req, res) {
     FMP_KEY ? safe(() => fetch('https://financialmodelingprep.com/api/v3/quote/' + ticker + '?apikey=' + FMP_KEY).then(r => r.json())) : null,
     FMP_KEY ? safe(() => fetch('https://financialmodelingprep.com/api/v3/profile/' + ticker + '?apikey=' + FMP_KEY).then(r => r.json())) : null,
 
-    NEWS_KEY ? safe(() => fetch('https://newsapi.org/v2/everything?q=' + encodeURIComponent(ticker) + '&sortBy=publishedAt&pageSize=10&language=en&apiKey=' + NEWS_KEY).then(r => r.json())) : null,
+    safe(async () => {
+      const NEWS_KEY = process.env.NEWS_API_KEY
+      const clean = s => s ? s.replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').trim() : ''
+      const parseRSS = xml => {
+        if(!xml) return []
+        const items=[], matches=xml.match(/<item>([\s\S]*?)<\/item>/g)||[]
+        for(const item of matches.slice(0,8)){
+          const title=clean(item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1]||item.match(/<title>(.*?)<\/title>/)?.[1]||'')
+          const link=item.match(/<link>(.*?)<\/link>/)?.[1]||item.match(/<guid>(.*?)<\/guid>/)?.[1]||''
+          const source=clean(item.match(/<source[^>]*>(.*?)<\/source>/)?.[1]||'Google News')
+          if(title&&title.length>5) items.push({title,url:link,source,publishedAt:''})
+        }
+        return items
+      }
+      const YH2={headers:{'User-Agent':'Mozilla/5.0','Accept':'application/json'}}
+      const [g1,g2,yNews,napi]= await Promise.all([
+        fetch('https://news.google.com/rss/search?q='+encodeURIComponent(ticker+' stock')+'&hl=en-US&gl=US&ceid=US:en',{headers:{'User-Agent':'Mozilla/5.0'}}).then(r=>r.text()).then(parseRSS).catch(()=>[]),
+        fetch('https://news.google.com/rss/search?q='+encodeURIComponent(ticker+' earnings')+'&hl=en-US&gl=US&ceid=US:en',{headers:{'User-Agent':'Mozilla/5.0'}}).then(r=>r.text()).then(parseRSS).catch(()=>[]),
+        fetch('https://query1.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent(ticker)+'&newsCount=8&quotesCount=0',YH2).then(r=>r.json()).then(d=>(d.news||[]).map(n=>({title:n.title,url:n.link,source:n.publisher,publishedAt:''}))).catch(()=>[]),
+        NEWS_KEY?fetch('https://newsapi.org/v2/everything?q='+encodeURIComponent(ticker)+'&sortBy=publishedAt&pageSize=8&language=en&apiKey='+NEWS_KEY).then(r=>r.json()).then(d=>(d.articles||[]).map(a=>({title:a.title,url:a.url,source:a.source&&a.source.name,publishedAt:a.publishedAt}))).catch(()=>[]):[]
+      ])
+      const seen=new Set(), all=[]
+      for(const item of [...(napi||[]),...(yNews||[]),...(g1||[]),...(g2||[])]){
+        if(!item.title||item.title.length<10) continue
+        const k=item.title.slice(0,50).toLowerCase()
+        if(!seen.has(k)){seen.add(k);all.push(item)}
+        if(all.length>=15) break
+      }
+      return {articles:all}
+    })(),
 
     FRED_KEY ? safe(() => fetch('https://api.stlouisfed.org/fred/series/observations?series_id=FEDFUNDS&limit=1&sort_order=desc&api_key=' + FRED_KEY + '&file_type=json').then(r => r.json())) : null,
     FRED_KEY ? safe(() => fetch('https://api.stlouisfed.org/fred/series/observations?series_id=CPIAUCSL&limit=2&sort_order=desc&api_key=' + FRED_KEY + '&file_type=json').then(r => r.json())) : null,
