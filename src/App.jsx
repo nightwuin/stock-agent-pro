@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
 const C = {
-  bg: '#f8f9fa', card: '#ffffff', border: '#e2e8f0', text: '#1a202c',
-  muted: '#718096', green: '#16a34a', red: '#dc2626', amber: '#d97706',
-  blue: '#2563eb', surface: '#f1f5f9', purple: '#7c3aed',
+  bg: '#f0f2f5', card: '#ffffff', border: '#cbd5e0', text: '#0f172a',
+  muted: '#374151', green: '#15803d', red: '#b91c1c', amber: '#b45309',
+  blue: '#1d4ed8', surface: '#e2e8f0', purple: '#6d28d9',
   greenBg: '#dcfce7', redBg: '#fee2e2', amberBg: '#fef3c7', blueBg: '#dbeafe'
 }
 const SIG = {
