@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
 const C = {
-  bg: '#edf2f7', card: '#ffffff', border: '#a0aec0', text: '#000000',
-  muted: '#2d3748', green: '#276749', red: '#9b2335', amber: '#975a16',
-  blue: '#2b6cb0', surface: '#e2e8f0', purple: '#553c9a',
-  greenBg: '#c6f6d5', redBg: '#fed7d7', amberBg: '#fefcbf', blueBg: '#bee3f8'
+  bg: '#e8edf2', card: '#ffffff', border: '#94a3b8', text: '#000000',
+  muted: '#1e293b', green: '#166534', red: '#991b1b', amber: '#92400e',
+  blue: '#1e40af', surface: '#dde3ea', purple: '#4c1d95',
+  greenBg: '#bbf7d0', redBg: '#fecaca', amberBg: '#fde68a', blueBg: '#bfdbfe'
 }
 const SIG = {
   ACHETER:  { color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
@@ -212,13 +212,13 @@ function Loading() {
 }
 function MRow({ label, value, color }) {
   return <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid '+C.border,fontSize:13}}>
-    <span style={{color:C.muted}}>{label}</span>
-    <span style={{fontFamily:'monospace',fontWeight:600,color:color||C.text}}>{value != null ? value : '—'}</span>
+    <span style={{color:'#334155',fontWeight:500}}>{label}</span>
+    <span style={{fontFamily:'monospace',fontWeight:700,color:color||'#000000'}}>{value != null ? value : '—'}</span>
   </div>
 }
 function MCard({ label, value, color, sub }) {
   return <div style={{background:C.surface,borderRadius:8,padding:'10px 12px',border:'1px solid '+C.border}}>
-    <div style={{fontSize:11,color:C.muted,marginBottom:4}}>{label}</div>
+    <div style={{fontSize:11,color:'#334155',marginBottom:4,fontWeight:600}}>{label}</div>
     <div style={{fontSize:16,fontWeight:700,fontFamily:'monospace',color:color||C.text}}>{value != null ? value : '—'}</div>
     {sub && <div style={{fontSize:10,color:C.muted,marginTop:2}}>{sub}</div>}
   </div>
@@ -245,7 +245,7 @@ function RsiGauge({ value, source }) {
 function Section({ title, expanded, onToggle, children }) {
   return <div>
     <button onClick={onToggle} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',background:'none',border:'none',color:C.muted,fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:1,padding:'10px 0',cursor:'pointer',borderTop:'1px solid '+C.border}}>
-      <span>{title}</span><span style={{fontSize:16}}>{expanded?'−':'+'}</span>
+      <span style={{color:'#1e293b',fontWeight:700}}>{title}</span><span style={{fontSize:16,color:'#1e293b'}}>{expanded?'−':'+'}</span>
     </button>
     {expanded && <div style={{fontSize:13,lineHeight:1.7,paddingBottom:8}}>{children}</div>}
   </div>
@@ -263,8 +263,8 @@ function IndexCard({ name, data }) {
   if (!data||!data.price) return <div style={{background:C.surface,borderRadius:8,padding:'6px 10px',opacity:0.4}}><div style={{fontSize:10,color:C.muted}}>{name}</div><div style={{fontSize:12,color:C.muted}}>—</div></div>
   const chg = parseFloat(data.chg)
   return <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 10px'}}>
-    <div style={{fontSize:10,color:C.muted}}>{name}</div>
-    <div style={{fontSize:13,fontWeight:600,fontFamily:'monospace'}}>{parseFloat(data.price).toLocaleString()}</div>
+    <div style={{fontSize:10,color:'#334155',fontWeight:600}}>{name}</div>
+    <div style={{fontSize:13,fontWeight:700,fontFamily:'monospace',color:'#000000'}}>{parseFloat(data.price).toLocaleString()}</div>
     <div style={{fontSize:11,color:chg>=0?C.green:C.red,fontWeight:500}}>{chg>=0?'+':''}{data.chg}%</div>
   </div>
 }
@@ -272,8 +272,8 @@ function StockRow({ stock, onAnalyze }) {
   const chg = parseFloat(stock.chg||0)
   return <div onClick={onAnalyze} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderBottom:'1px solid '+C.border,cursor:'pointer'}}>
     <div>
-      <div style={{fontSize:13,fontWeight:600,fontFamily:'monospace',color:C.blue}}>{stock.symbol}</div>
-      <div style={{fontSize:11,color:C.muted,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{stock.name}</div>
+      <div style={{fontSize:13,fontWeight:700,fontFamily:'monospace',color:'#1e40af'}}>{stock.symbol}</div>
+      <div style={{fontSize:11,color:'#334155',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{stock.name}</div>
     </div>
     <div style={{textAlign:'right'}}>
       <div style={{fontSize:13,fontWeight:600,fontFamily:'monospace'}}>${stock.price}</div>
@@ -311,8 +311,8 @@ function StockCard({ ticker, data, onAnalyze }) {
   return <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,marginBottom:12}}>
     <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:8}}>
       <div>
-        <div style={{fontSize:20,fontWeight:700,fontFamily:'monospace'}}>{ticker}</div>
-        {raw && <div style={{fontSize:14,color:C.muted,fontFamily:'monospace'}}>
+        <div style={{fontSize:20,fontWeight:700,fontFamily:'monospace',color:'#000000'}}>{ticker}</div>
+        {raw && <div style={{fontSize:14,color:'#1e293b',fontFamily:'monospace',fontWeight:600}}>
           ${raw.currentPrice}
           <span style={{marginLeft:8,color:chg>=0?C.green:C.red,fontWeight:600}}>{chg>=0?'+':''}{chg}%</span>
           {raw.marketCap && <span style={{marginLeft:8,fontSize:12}}>{raw.marketCap}</span>}
@@ -523,14 +523,14 @@ export default function App() {
   const CS={background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,marginBottom:12}
 
   return <div style={{background:C.bg,minHeight:'100vh',paddingBottom:80,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
-    <style>{'@keyframes p{0%,100%{opacity:.2}50%{opacity:1}} input,select{font-size:16px!important;} input::placeholder{color:#a0aec0} button{min-height:44px} @media(max-width:480px){.tabs button{padding:10px 8px!important;font-size:11px!important}}'}</style>
+    <style>{'@keyframes p{0%,100%{opacity:.2}50%{opacity:1}} * {color: inherit;} body,div,span,p,h1,h2,h3,button,input,select,a {color: #000000;} input,select{font-size:16px!important; color:#000000!important; background:#dde3ea!important;} input::placeholder{color:#475569!important} button{min-height:44px}'}</style>
 
     {/* HEADER */}
     <div style={{background:C.card,borderBottom:'1px solid '+C.border,padding:'12px 16px',position:'sticky',top:0,zIndex:10}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
         <div>
-          <div style={{fontSize:16,fontWeight:700}}>📈 Stock Agent Pro</div>
-          <div style={{fontSize:10,color:C.muted}}>Yahoo · Alpha Vantage · FRED · NewsAPI · Gemini AI</div>
+          <div style={{fontSize:16,fontWeight:700,color:'#000000'}}>📈 Stock Agent Pro</div>
+          <div style={{fontSize:10,color:'#1e293b'}}>Yahoo · Alpha Vantage · FRED · NewsAPI · Gemini AI</div>
         </div>
         {market&&market.fearGreed&&<FearGreedGauge value={market.fearGreed.value} label={market.fearGreed.label}/>}
       </div>
@@ -545,7 +545,7 @@ export default function App() {
     {/* TABS */}
     <div style={{display:'flex',background:C.card,borderBottom:'1px solid '+C.border,overflowX:'auto'}}>
       {[['dashboard','📊','Analyse'],['screener','🔥','Screener'],['calendar','📅','Calendrier'],['journal','📓','Journal'],['alerts','🔔','Alertes'],['backtest','🔬','Backtest']].map(([id,icon,label])=>
-        <button key={id} style={{flexShrink:0,padding:'10px 14px',fontSize:12,fontWeight:500,border:'none',background:'none',color:tab===id?C.text:C.muted,borderBottom:tab===id?'2px solid '+C.text:'2px solid transparent',cursor:'pointer'}} onClick={()=>setTab(id)}>{icon} {label}</button>
+        <button key={id} style={{flexShrink:0,padding:'10px 14px',fontSize:12,fontWeight:600,border:'none',background:'none',color:tab===id?'#000000':'#334155',borderBottom:tab===id?'2px solid #000000':'2px solid transparent',cursor:'pointer'}} onClick={()=>setTab(id)}>{icon} {label}</button>
       )}
     </div>
 
@@ -554,7 +554,7 @@ export default function App() {
       {/* DASHBOARD */}
       {tab==='dashboard'&&<>
         <div style={{display:'flex',gap:6,marginBottom:8}}>
-          {['1j','1s','1m','3m','1an'].map(p=><button key={p} onClick={()=>setPeriod(p)} style={{flex:1,padding:'7px 0',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:8,border:'1px solid '+(period===p?C.blue:C.border),background:period===p?C.blueBg:'transparent',color:period===p?C.blue:C.muted}}>{p.toUpperCase()}</button>)}
+          {['1j','1s','1m','3m','1an'].map(p=><button key={p} onClick={()=>setPeriod(p)} style={{flex:1,padding:'7px 0',fontSize:12,fontWeight:700,cursor:'pointer',borderRadius:8,border:'1px solid '+(period===p?C.blue:C.border),background:period===p?C.blueBg:'#f8fafc',color:period===p?C.blue:'#334155'}}>{p.toUpperCase()}</button>)}
         </div>
         <div style={{position:'relative',marginBottom:8}}>
           <div style={{display:'flex',gap:8}}>
@@ -608,7 +608,7 @@ export default function App() {
       {tab==='screener'&&<>
         <div style={{display:'flex',gap:6,marginBottom:12}}>
           {[['gainers','🟢 Hausse'],['losers','🔴 Baisse'],['active','🔥 Actifs']].map(([id,label])=>
-            <button key={id} onClick={()=>setScreenerTab(id)} style={{flex:1,padding:'8px 0',fontSize:12,fontWeight:600,cursor:'pointer',borderRadius:8,border:'1px solid '+(screenerTab===id?C.blue:C.border),background:screenerTab===id?C.blueBg:'transparent',color:screenerTab===id?C.blue:C.muted}}>{label}</button>
+            <button key={id} onClick={()=>setScreenerTab(id)} style={{flex:1,padding:'8px 0',fontSize:12,fontWeight:700,cursor:'pointer',borderRadius:8,border:'1px solid '+(screenerTab===id?C.blue:C.border),background:screenerTab===id?C.blueBg:'#f8fafc',color:screenerTab===id?C.blue:'#334155'}}>{label}</button>
           )}
         </div>
         {!market?<Loading/>:market.screener&&market.screener[screenerTab]&&market.screener[screenerTab].length>0
