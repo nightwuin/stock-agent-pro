@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
 const C = {
-  bg: '#f0f2f5', card: '#ffffff', border: '#cbd5e0', text: '#0f172a',
-  muted: '#374151', green: '#15803d', red: '#b91c1c', amber: '#b45309',
-  blue: '#1d4ed8', surface: '#e2e8f0', purple: '#6d28d9',
-  greenBg: '#dcfce7', redBg: '#fee2e2', amberBg: '#fef3c7', blueBg: '#dbeafe'
+  bg: '#edf2f7', card: '#ffffff', border: '#a0aec0', text: '#000000',
+  muted: '#2d3748', green: '#276749', red: '#9b2335', amber: '#975a16',
+  blue: '#2b6cb0', surface: '#e2e8f0', purple: '#553c9a',
+  greenBg: '#c6f6d5', redBg: '#fed7d7', amberBg: '#fefcbf', blueBg: '#bee3f8'
 }
 const SIG = {
   ACHETER:  { color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
